@@ -8,7 +8,7 @@ def create_service_provider(db: Session, service_provider: ServiceProviderCreate
     # Check for duplicate email or phone
     existing = db.query(ServiceProvider).filter(
         (ServiceProvider.email == service_provider.email) |
-        (ServiceProvider.phone == service_provider.phone)
+        (ServiceProvider.phone_number == service_provider.phone_number)
     ).first()
 
     if existing:
@@ -22,7 +22,7 @@ def create_service_provider(db: Session, service_provider: ServiceProviderCreate
         nearby=service_provider.nearby,
         longitude=service_provider.longitude,
         latitude=service_provider.latitude,
-        phone=service_provider.phone
+        phone_number=service_provider.phone_number
     )
 
     db.add(db_service_provider)
