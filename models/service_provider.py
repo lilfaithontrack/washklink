@@ -5,6 +5,7 @@ class ServiceProvider(Base) :
     __tablename__ = "service_provider"
     id = Column(Integer, unique=True, primary_key=True, index=True)
     name = Column(String,  nullable=False)
+    phone_number=Column(Integer, unique=True, nullable=False) 
     email = Column(String,unique=True, index=True , nullable=False)
     password = Column(String, nullable=True)
     is_active = Column(Boolean, default=True)
