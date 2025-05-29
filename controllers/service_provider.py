@@ -18,7 +18,6 @@ def create_service_provider(db: Session, service_provider: ServiceProviderCreate
     db_service_provider = ServiceProvider(
         name=service_provider.name,
         email=service_provider.email,
-        password=hash_password(service_provider.password),
         address=service_provider.address,
         nearby=service_provider.nearby,
         longitude=service_provider.longitude,
