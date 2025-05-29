@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
+from database import engine, Base
 from routes import service_provider
 
 # Create all DB tables
