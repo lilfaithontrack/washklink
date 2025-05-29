@@ -11,11 +11,9 @@ app = FastAPI()
 
 # CORS setup
 origins = [
-    "http://localhost:5173",         # Vite frontend (local dev)
-    "https://washlink.et",         # Your main frontend domain
-      # If frontend makes requests from here
+    "http://localhost:5173",         
+    "https://washlink.et",         
 ]
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
