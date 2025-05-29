@@ -14,9 +14,10 @@ origins = [
     "http://localhost:5173",         
     "https://washlink.et",         
 ]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,  # <-- use the defined list
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
