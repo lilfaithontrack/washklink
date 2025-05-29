@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from database import engine, Base
+
 from routes import service_provider, user_routes
 
 # Create all DB tables
@@ -26,4 +26,4 @@ app.add_middleware(
 
 # Routers
 app.include_router(service_provider.router)
-app.include_router(user_routes.route)
+
