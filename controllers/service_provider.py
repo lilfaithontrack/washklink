@@ -21,7 +21,7 @@ def create_service_provider(db: Session, service_provider: ServiceProviderCreate
         last_name=service_provider.last_name,
         email=service_provider.email,
         address=service_provider.address,
-        nearby=service_provider.nearby,
+        nearby_condominum =service_provider. nearby_condominum ,
         longitude=service_provider.longitude,
         latitude=service_provider.latitude,
         phone_number=service_provider.phone_number,
