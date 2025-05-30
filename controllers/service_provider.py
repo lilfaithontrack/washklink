@@ -26,6 +26,8 @@ def create_service_provider(db: Session, service_provider: ServiceProviderCreate
         longitude=service_provider.longitude,
         latitude=service_provider.latitude,
         phone_number=service_provider.phone_number,
+        washing_machine=service_provider.washing_machine,
+        date_of_birth=service_provider.date_of_birth
         
     )
 
