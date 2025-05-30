@@ -1,4 +1,4 @@
-from sqlalchemy  import Column , Integer ,String , ForeignKey, Boolean,Float 
+from sqlalchemy  import Column , Integer ,String , ForeignKey, Boolean,Float ,Date
 from database import Base
 
 class ServiceProvider(Base) :
