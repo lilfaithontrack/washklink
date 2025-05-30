@@ -17,12 +17,16 @@ def create_service_provider(db: Session, service_provider: ServiceProviderCreate
     # Create new service provider
     db_service_provider = ServiceProvider(
         name=service_provider.name,
+        first_name=service_provider.first_name,
+        Middle_name=service_provider.Middle_name,
+        last_name=service_provider.last_name,
         email=service_provider.email,
         address=service_provider.address,
         nearby=service_provider.nearby,
         longitude=service_provider.longitude,
         latitude=service_provider.latitude,
-        phone_number=service_provider.phone_number
+        phone_number=service_provider.phone_number,
+        
     )
 
     db.add(db_service_provider)
