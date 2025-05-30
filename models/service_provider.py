@@ -7,7 +7,7 @@ class ServiceProvider(Base):
 
     id = Column(Integer, unique=True, primary_key=True, index=True)
     first_name = Column(String, nullable=False)
-    Middle_name = Column(String, nullable=False)
+    middle_name = Column(String, nullable=False)
     last_name = Column(String, nullable=False)
     name = Column(String, nullable=False)
     phone_number = Column(Integer, unique=True, nullable=False)
