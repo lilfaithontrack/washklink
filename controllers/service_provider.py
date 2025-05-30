@@ -16,7 +16,6 @@ def create_service_provider(db: Session, service_provider: ServiceProviderCreate
 
     # Create new service provider
     db_service_provider = ServiceProvider(
-        name=service_provider.name,
         first_name=service_provider.first_name,
         middle_name=service_provider.middle_name,
         last_name=service_provider.last_name,
