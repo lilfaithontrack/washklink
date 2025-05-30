@@ -10,7 +10,6 @@ class ServiceProvider(Base):
     middle_name = Column(String, nullable=False)
     last_name = Column(String, nullable=False)
     address = Column(String, nullable=False)
-    name = Column(String, nullable=False)
     phone_number = Column(Integer, unique=True, nullable=False)
     email = Column(String, unique=True, index=True, nullable=False)
     password = Column(String, nullable=True)
