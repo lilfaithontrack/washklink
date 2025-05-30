@@ -1,4 +1,5 @@
 from pydantic import BaseModel, Field , EmailStr
+from datetime import date
 class ServiceProviderCreate(BaseModel) :
     name: str = Field(..., min_length=1, max_length=50)
     email: EmailStr
@@ -22,7 +23,7 @@ class ServiceProviderResponse(BaseModel) :
     email: EmailStr
     phone_number: int
     address: str
-    nearby: str
+    nearby_nearby_condominum: str
     date_of_birth:date
     washing_machine:boolean
     longitude: float
