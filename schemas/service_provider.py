@@ -16,7 +16,6 @@ class ServiceProviderCreate(BaseModel):
 
 class ServiceProviderResponse(BaseModel):
     id: int
-    name: str
     email: EmailStr
     first_name: str
     middle_name: str
