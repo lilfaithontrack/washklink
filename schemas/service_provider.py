@@ -1,31 +1,32 @@
-from pydantic import BaseModel, Field , EmailStr
+from pydantic import BaseModel, Field, EmailStr
 from datetime import date
-class ServiceProviderCreate(BaseModel) :
+
+class ServiceProviderCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=50)
     email: EmailStr
-    first_name:str
-    Middle_name:str
-    last_name:str
+    first_name: str
+    Middle_name: str
+    last_name: str
     address: str = Field(..., min_length=1, max_length=100)
     nearby: str = Field(..., min_length=1, max_length=100)
     phone_number: int
-    date_of_birth:date
-    washing_machine:boolean 
+    date_of_birth: date
+    washing_machine: bool
     longitude: float
     latitude: float
-class ServiceProviderResponse(BaseModel) :
+
+class ServiceProviderResponse(BaseModel):
     id: int
     name: str
-    first_name:str
-    Middle_name:str
-    last_name:str
-    washing_machine:str
     email: EmailStr
-    phone_number: int
+    first_name: str
+    Middle_name: str
+    last_name: str
     address: str
-    nearby_nearby_condominum: str
-    date_of_birth:date
-    washing_machine:boolean
+    nearby_condominum: str
+    phone_number: int
+    date_of_birth: date
+    washing_machine: bool
     longitude: float
     latitude: float
 
