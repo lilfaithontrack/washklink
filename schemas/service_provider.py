@@ -8,7 +8,7 @@ class ServiceProviderCreate(BaseModel):
     middle_name: str
     last_name: str
     address: str = Field(..., min_length=1, max_length=100)
-    nearby: str = Field(..., min_length=1, max_length=100)
+    nearby_condominum : str = Field(..., min_length=1, max_length=100)
     phone_number: int
     date_of_birth: date
     washing_machine: bool
