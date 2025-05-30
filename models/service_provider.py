@@ -14,7 +14,7 @@ class ServiceProvider(Base) :
     is_active = Column(Boolean, default=True)
     Date_of_Birth= Column(Date, nullable=False)
     address= Column(String, nullable=False)
-    washing_machine=(Boolean, default=True)
+    washing_machine=Column(Boolean, default=True)
     nearby = Column(String, nullable=False)
     longitude = Column(Float, nullable=False)
     latitude = Column(Float, nullable=False)
