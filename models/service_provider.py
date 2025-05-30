@@ -12,10 +12,10 @@ class ServiceProvider(Base) :
     email = Column(String,unique=True, index=True , nullable=False)
     password = Column(String, nullable=True)
     is_active = Column(Boolean, default=True)
-    Date_of_Birth= Column(Date, nullable=False)
+    date_of_birth = Column(Date, nullable=False, default=date(2000, 1, 1))
     address= Column(String, nullable=False)
-    washing_machine=Column(Boolean, default=True)
-    nearby = Column(String, nullable=False)
+    washing_machine=(Boolean, default=True)
+    nearby_condominum= Column(String, nullable=False)
     longitude = Column(Float, nullable=False)
     latitude = Column(Float, nullable=False)
 
