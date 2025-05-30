@@ -2,7 +2,6 @@ from pydantic import BaseModel, Field, EmailStr
 from datetime import date
 
 class ServiceProviderCreate(BaseModel):
-    name: str = Field(..., min_length=1, max_length=50)
     email: EmailStr
     first_name: str
     middle_name: str
