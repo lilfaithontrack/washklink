@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from database import SessionLocal
 from models.users import DBUser
 from schemas.users_schema import UserCreate, UserVerify, UserResponse
-from utils.sms_utils import generate_otp, send_otp_sms, otp_store
+from utils.otp_service import generate_otp, send_otp_sms, otp_store
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
