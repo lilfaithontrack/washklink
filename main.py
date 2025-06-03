@@ -26,4 +26,4 @@ app.add_middleware(
 
 # Routers
 app.include_router(service_provider.router)
-app.include_router(users.router)
+app.include_router(users_routes.router)
