@@ -6,7 +6,7 @@ from typing import Optional
 class Settings(BaseSettings):
     AFRO_MESSAGE_API_KEY: str
     AFRO_MESSAGE_SENDER_NAME: str
-    AFRO_MESSAGE_IDENTIFIER_ID: Optional[str] = None  # Or your default identifier
+    AFRO_MESSAGE_IDENTIFIER_ID: Optional[str] = None
     AFRO_MESSAGE_BASE_URL: str = "https://api.afromessage.com/api"
 
     class Config:
