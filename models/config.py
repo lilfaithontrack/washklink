@@ -1,4 +1,4 @@
-from pydantic import BaseSettings
+from pydantic-settings import BaseSettings
 from functools import lru_cache
 from typing import Optional
 
