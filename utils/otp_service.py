@@ -1,7 +1,7 @@
 # sms_utils.py
 import requests
 import random
-from config import get_settings
+from models.config import get_settings
 
 def generate_otp() -> str:
     return str(random.randint(100000, 999999))
