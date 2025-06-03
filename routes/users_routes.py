@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from database import SessionLocal
-from models.db_user import DBUser
-from models.user import UserCreate, UserVerify, UserResponse
+from models.users import DBUser
+from schemas.user_schema import UserCreate, UserVerify, UserResponse
 from utils.sms_utils import generate_otp, send_otp_sms, otp_store
 
 router = APIRouter(prefix="/users", tags=["Users"])
