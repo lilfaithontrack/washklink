@@ -6,7 +6,7 @@ class Booking(Base):
     __tablename__ = "bookings"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"))
+    user_id = Column(Integer, ForeignKey("new_users.id"))
     item = Column(String, nullable=False)  # e.g., checklist title or item name
     price_tag = Column(Float, nullable=False)
     subtotal = Column(Float, nullable=False)
