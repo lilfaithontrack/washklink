@@ -5,9 +5,9 @@ from models import booking as models
 from schemas import booking as schemas
 from typing import List
 
-router = APIRouter()
+booking_router = APIRouter()
 
-@router.post("/", response_model=schemas.BookingOut)
+@booking_router.post("/", response_model=schemas.BookingOut)
 def create_booking(booking: schemas.BookingCreate, db: Session = Depends(get_db)):
     delivery_charge = 0.0
     if booking.delivery:
@@ -30,12 +30,11 @@ def create_booking(booking: schemas.BookingCreate, db: Session = Depends(get_db)
     db.refresh(new_booking)
     return new_booking
 
-@router.get("/", response_model=List[schemas.BookingOut])
+@booking_router.get("/", response_model=List[schemas.BookingOut])
 def get_all_bookings(db: Session = Depends(get_db)):
-    bookings = db.query(models.Booking).all()
-    return bookings
+    return db.query(models.Booking).all()
 
-@router.get("/{booking_id}", response_model=schemas.BookingOut)
+@booking_router.get("/{booking_id}", response_model=schemas.BookingOut)
 def get_booking(booking_id: int, db: Session = Depends(get_db)):
     booking = db.query(models.Booking).filter(models.Booking.id == booking_id).first()
     if not booking:
