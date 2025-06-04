@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from database import engine, Base
 from routes import service_provider
 from routes import users_routes
+from routes import booking 
 
 # Create all DB tables
 Base.metadata.create_all(bind=engine)
@@ -27,3 +28,4 @@ app.add_middleware(
 # Routers
 app.include_router(service_provider.router)
 app.include_router(users_routes.router)
+app.include_router(booking.router)
