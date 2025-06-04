@@ -6,4 +6,4 @@ router = APIRouter(
     tags=["Bookings"]
 )
 
-router.include_router(booking_controller.router)
+router.include_router(booking_router)
