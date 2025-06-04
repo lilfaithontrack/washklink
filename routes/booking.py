@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from controller import booking as booking_controller
+from controllers.booking_controller import booking 
 
 router = APIRouter(
     prefix="/bookings",
