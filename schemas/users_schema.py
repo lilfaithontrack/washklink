@@ -6,7 +6,7 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
      sender_name: str
-     pass  # Used when requesting OTP (registration or login)
+     pass 
 
 class UserVerify(BaseModel):
     phone_number: str
