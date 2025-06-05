@@ -38,7 +38,7 @@ def verify_otp(data: UserVerify, db: Session = Depends(get_db)):
     # Create or fetch user
     user = db.query(DBUser).filter(DBUser.phone_number == data.phone_number).first()
     if not user:
-        user = DBUser(phone_number=data.phone_number)
+        user = DBUser(phone_number=data.phone_number, sender_name=data.sender_name)
         db.add(user)
         db.commit()
         db.refresh(user)
