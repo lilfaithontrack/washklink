@@ -1,10 +1,12 @@
 from pydantic import BaseModel
 
 class UserBase(BaseModel):
+    sender_name: str
     phone_number: str
 
 class UserCreate(UserBase):
-    pass  # Used when requesting OTP (registration or login)
+     sender_name: str
+     pass  # Used when requesting OTP (registration or login)
 
 class UserVerify(BaseModel):
     phone_number: str
@@ -12,6 +14,8 @@ class UserVerify(BaseModel):
 
 class UserResponse(UserBase):
     id: int
+    sender_name:str
+    phone_number:str
     is_active: bool
 
     class Config:
