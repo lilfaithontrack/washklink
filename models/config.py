@@ -3,7 +3,7 @@ from functools import lru_cache
 from typing import Optional
 
 class Settings(BaseSettings):
-    DATABASE_URL: str
+    DATABASE_URL: str 
     AFRO_MESSAGE_API_KEY: str
     AFRO_MESSAGE_SENDER_NAME: str
     AFRO_MESSAGE_IDENTIFIER_ID: Optional[str] = None
