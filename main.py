@@ -43,6 +43,8 @@ async def startup_event():
     except OperationalError as e:
         pprint("❌ Failed to connect to the database.")
         pprint(str(e))
-        @app.get("/")
+
+# <-- This is at the top level, NOT indented under except or any function
+@app.get("/")
 async def root():
     return {"message": "API is up and running"}
