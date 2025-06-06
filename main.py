@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import OperationalError
+from sqlalchemy import text  # ✅ Needed for raw SQL
 from database import engine, Base, SessionLocal
 from routes import service_provider, users_routes, booking
 from pprint import pprint
@@ -31,13 +32,12 @@ app.include_router(service_provider.router)
 app.include_router(users_routes.router)
 app.include_router(booking.router)
 
-# Startup event to check DB connection
+# Startup event to verify DB connection
 @app.on_event("startup")
 async def startup_event():
     try:
         db: Session = SessionLocal()
-        # Simple query to check DB connection
-        db.execute("SELECT 1")
+        db.execute(text("SELECT 1"))  # ✅ Check DB connection
         db.close()
         pprint("✅ Connected to the database and FastAPI is running at https://api.washlinnk.com")
     except OperationalError as e:
