@@ -1,9 +1,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from database import engine, Base
-from routes import service_provider
-from routes import users_routes
-from routes import booking
+from sqlalchemy.orm import Session
+from sqlalchemy.exc import OperationalError
+from database import engine, Base, SessionLocal
+from routes import service_provider, users_routes, booking
 from pprint import pprint
 
 # Create all DB tables
@@ -14,8 +14,8 @@ app = FastAPI()
 
 # CORS setup
 origins = [
-    "http://localhost:5173",         
-    "https://washlink.et",         
+    "http://localhost:5173",
+    "https://washlink.et",
 ]
 
 app.add_middleware(
@@ -31,7 +31,15 @@ app.include_router(service_provider.router)
 app.include_router(users_routes.router)
 app.include_router(booking.router)
 
-# Startup event to print status
+# Startup event to check DB connection
 @app.on_event("startup")
 async def startup_event():
-    pprint("🚀 FastAPI is running and connected to https://api.washlink.com")
+    try:
+        db: Session = SessionLocal()
+        # Simple query to check DB connection
+        db.execute("SELECT 1")
+        db.close()
+        pprint("✅ Connected to the database and FastAPI is running at https://api.washlinnk.com")
+    except OperationalError as e:
+        pprint("❌ Failed to connect to the database.")
+        pprint(str(e))
