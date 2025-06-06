@@ -43,3 +43,6 @@ async def startup_event():
     except OperationalError as e:
         pprint("❌ Failed to connect to the database.")
         pprint(str(e))
+        @app.get("/")
+async def root():
+    return {"message": "API is up and running"}
