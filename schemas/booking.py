@@ -10,6 +10,7 @@ class BookingItem(BaseModel):
 class BookingCreate(BaseModel):
     user_id: int
     product_id: int
+    items: List[BookingItem]
     category_id: int
     payment_option: Optional[str]
     delivery: bool = False
