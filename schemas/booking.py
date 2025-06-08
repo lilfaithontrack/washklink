@@ -1,6 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional
-
+from typing import List, Optional
 
 class BookingCreate(BaseModel):
     user_id: int
