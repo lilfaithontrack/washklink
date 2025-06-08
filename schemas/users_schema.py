@@ -1,21 +1,29 @@
 from pydantic import BaseModel
+from typing import Optional
 
+# Shared Base
 class UserBase(BaseModel):
-    sender_name: str
+    full_name: str
+    phone_number: str
+    email: str
+
+# For requesting OTP (basic)
+class UserCreate(BaseModel):
     phone_number: str
 
-class UserCreate(UserBase):
-     sender_name: str
-     pass 
-
+# For verifying OTP or Google Auth
 class UserVerify(BaseModel):
+    full_name: str
     phone_number: str
-    otp_code: str
+    email: str
+    otp_code: Optional[str] = None  # Optional for Google Auth
 
-class UserResponse(UserBase):
+# Response schema
+class UserResponse(BaseModel):
     id: int
-    sender_name:str
-    phone_number:str
+    full_name: str
+    phone_number: str
+    email: str
     is_active: bool
 
     class Config:
