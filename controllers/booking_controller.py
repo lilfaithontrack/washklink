@@ -31,7 +31,7 @@ def create_booking(booking: schemas.BookingCreate, db: Session = Depends(get_db)
 
     new_booking = models.Booking(
         user_id=booking.user_id,
-        item=item_data.title,
+        items=items_data.title,
         price_tag=item_data.normal_price,
         subtotal=subtotal,
         payment_option=booking.payment_option,
