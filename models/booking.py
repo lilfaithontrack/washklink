@@ -10,7 +10,7 @@ class Booking(Base):
     
     # Storing list of items as JSON
     items = Column(JSON, nullable=False) 
-
+    price_tag = Column(Float, nullable=False, default=0.0)
     subtotal = Column(Float, nullable=False)
     payment_option = Column(String(50), nullable=True)
     delivery = Column(Boolean, default=False)
