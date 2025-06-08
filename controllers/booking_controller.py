@@ -7,7 +7,7 @@ from typing import List
 from sqlalchemy import text
 
 booking_router = APIRouter()
-
+@booking_router.post("/", response_model=schemas.BookingOut)
 def create_booking(booking: schemas.BookingCreate, db: Session = Depends(get_db)):
     total_subtotal = 0
     processed_items = []
