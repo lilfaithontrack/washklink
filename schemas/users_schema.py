@@ -22,7 +22,7 @@ class UserVerify(BaseModel):
 class UserResponse(BaseModel):
     id: int
     full_name: str
-    phone_number: str
+    phone_number: Optional[str]
     email: str
     is_active: bool
 
