@@ -7,6 +7,8 @@ from sqlalchemy import text
 from database import engine, Base, SessionLocal
 from routes import service_provider, users_routes, booking
 from pprint import pprint
+from dotenv import load_dotenv
+load_dotenv()
 
 # Create all DB tables
 Base.metadata.create_all(bind=engine)
