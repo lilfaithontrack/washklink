@@ -4,7 +4,7 @@ from typing import Optional
 # Shared Base
 class UserBase(BaseModel):
     full_name: str
-    phone_number: str
+    phone_number: Optional[str]
     email: str
 
 # For requesting OTP (basic)
@@ -14,7 +14,7 @@ class UserCreate(BaseModel):
 # For verifying OTP or Google Auth
 class UserVerify(BaseModel):
     full_name: str
-    phone_number: str
+    phone_number: Optional[str]
     email: str
     otp_code: Optional[str] = None  # Optional for Google Auth
 
