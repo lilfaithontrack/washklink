@@ -1,6 +1,13 @@
 from pydantic import BaseModel, Field, EmailStr
 from datetime import date
 
+class ProcessedItemOut(BaseModel):
+    product_id: int
+    category_id: int
+    title: str
+    price_tag: float
+    quantity: int
+    subtotal: float
 class ServiceProviderCreate(BaseModel):
     email: EmailStr
     first_name: str
