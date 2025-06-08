@@ -16,7 +16,7 @@ class BookingCreate(BaseModel):
 class BookingOut(BaseModel):
     id: int
     user_id: int
-    item: str
+    items: List[OrderItem]
     price_tag: float
     subtotal: float
     payment_option: Optional[str]
