@@ -1,6 +1,12 @@
 from pydantic import BaseModel
 from typing import List, Optional
 
+class BookingItem(BaseModel):
+    product_id: int
+    category_id: int
+    quantity: int
+    price: float
+    
 class BookingCreate(BaseModel):
     user_id: int
     product_id: int
