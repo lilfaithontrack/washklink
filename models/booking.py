@@ -7,14 +7,14 @@ class Booking(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("new_users.id"))
-    item = Column(String(255), nullable=False)  # Added length
+    item = Column(String(255), nullable=False)
     price_tag = Column(Float, nullable=False)
     subtotal = Column(Float, nullable=False)
-    payment_option = Column(String(50), nullable=True)  # Added length
+    payment_option = Column(String(50), nullable=True)
     delivery = Column(Boolean, default=False)
     delivery_km = Column(Float, default=0.0)
     delivery_charge = Column(Float, default=0.0)
     cash_on_delivery = Column(Boolean, default=False)
-    note = Column(String(255), nullable=True)  # Added length
+    note = Column(String(255), nullable=True)
 
-  user = relationship("DBUser", back_populates="bookings")
+    user = relationship("DBUser", back_populates="bookings")
