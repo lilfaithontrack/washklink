@@ -7,7 +7,7 @@ class Booking(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("new_users.id"))
-    item = Column(String(255), nullable=False)
+    items = Column(JSON)
     price_tag = Column(Float, nullable=False)
     subtotal = Column(Float, nullable=False)
     payment_option = Column(String(50), nullable=True)
