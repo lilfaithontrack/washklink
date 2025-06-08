@@ -6,9 +6,11 @@ class Booking(Base):
     __tablename__ = "bookings"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("new_users.id"))
-    items = Column(JSON)
-    price_tag = Column(Float, nullable=False)
+    user_id = Column(Integer, ForeignKey("new_users.id"), nullable=False)
+    
+    # Storing list of items as JSON
+    items = Column(JSON, nullable=False) 
+
     subtotal = Column(Float, nullable=False)
     payment_option = Column(String(50), nullable=True)
     delivery = Column(Boolean, default=False)
@@ -17,4 +19,5 @@ class Booking(Base):
     cash_on_delivery = Column(Boolean, default=False)
     note = Column(String(255), nullable=True)
 
+    # Relationship to user table
     user = relationship("DBUser", back_populates="bookings")
