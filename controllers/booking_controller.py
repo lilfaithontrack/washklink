@@ -8,32 +8,44 @@ from sqlalchemy import text
 
 booking_router = APIRouter()
 
-@booking_router.post("/", response_model=schemas.BookingOut)
 def create_booking(booking: schemas.BookingCreate, db: Session = Depends(get_db)):
-    # Fetch product price and details
-    item_data = db.execute(
-        text("""
-            SELECT * FROM tbl_item_price_with_catagory 
-            WHERE product_id = :product_id AND catagory_id = :category_id
-        """),
-        {"product_id": booking.product_id, "category_id": booking.category_id}
-    ).fetchone()
+    total_subtotal = 0
+    processed_items = []
 
-    if not item_data:
-        raise HTTPException(status_code=404, detail="Item with given category and product not found")
+    for item in booking.items:
+        item_data = db.execute(
+            text("""
+                SELECT * FROM tbl_item_price_with_catagory 
+                WHERE product_id = :product_id AND catagory_id = :category_id
+            """),
+            {"product_id": item.product_id, "category_id": item.category_id}
+        ).fetchone()
 
-    if item_data.out_of_stock:
-        raise HTTPException(status_code=400, detail="Item is out of stock")
+        if not item_data:
+            raise HTTPException(status_code=404, detail=f"Item {item.product_id} in category {item.category_id} not found")
+
+        if item_data.out_of_stock:
+            raise HTTPException(status_code=400, detail=f"Item {item.product_id} is out of stock")
+
+        subtotal = (item_data.normal_price - item_data.discount) * item.quantity
+        total_subtotal += subtotal
+
+        processed_items.append({
+            "product_id": item.product_id,
+            "category_id": item.category_id,
+            "title": item_data.title,
+            "price": item_data.normal_price,
+            "quantity": item.quantity,
+            "subtotal": subtotal
+        })
 
     delivery_charge = booking.delivery_km * 5 if booking.delivery else 0
 
-    subtotal = item_data.normal_price - item_data.discount
-
     new_booking = models.Booking(
         user_id=booking.user_id,
-        items=items_data.title,
-        price_tag=item_data.normal_price,
-        subtotal=subtotal,
+        items=processed_items,
+        price_tag=booking.total_amount,  # optional
+        subtotal=total_subtotal,
         payment_option=booking.payment_option,
         delivery=booking.delivery,
         delivery_km=booking.delivery_km,
@@ -41,7 +53,6 @@ def create_booking(booking: schemas.BookingCreate, db: Session = Depends(get_db)
         cash_on_delivery=booking.cash_on_delivery,
         note=booking.note
     )
-
     db.add(new_booking)
     db.commit()
     db.refresh(new_booking)
