@@ -17,4 +17,4 @@ class Booking(Base):
     cash_on_delivery = Column(Boolean, default=False)
     note = Column(String(255), nullable=True)  # Added length
 
-    user = relationship("User", back_populates="bookings")
+  user = relationship("DBUser", back_populates="bookings")
