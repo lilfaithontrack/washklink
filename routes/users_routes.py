@@ -104,9 +104,7 @@ def verify_otp(data: UserVerify, db: Session = Depends(get_db)):
 
     return user
 
-otp_store: Dict[str, str] = {
-    "+251911234567": "123456"
-}
+
 @router.put("/send-otp", response_model=UserResponse)
 def send_otp(data: UserUpdate, db: Session = Depends(get_db)):
     real_otp = otp_store.get(data.phone_number)
