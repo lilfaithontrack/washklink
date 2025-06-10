@@ -7,6 +7,7 @@ from google.auth.transport import requests
 from database import SessionLocal
 from models.users import DBUser
 from schemas.users_schema import UserResponse
+from schemas.users_schema import UserUpdate
 from utils.otp_service import generate_otp, send_otp_sms, otp_store
 
 router = APIRouter(prefix="/users", tags=["Users"])
@@ -97,7 +98,31 @@ def verify_otp(data: UserVerify, db: Session = Depends(get_db)):
         db.commit()
         db.refresh(user)
 
+
     # Remove OTP after verification
     del otp_store[data.phone_number]
+
+    return user
+
+otp_store: Dict[str, str] = {
+    "+251911234567": "123456"
+}
+@router.put("/send-otp", response_model=UserResponse)
+def send_otp(data: UserUpdate, db: Session = Depends(get_db)):
+    real_otp = otp_store.get(data.phone_number)
+
+    if real_otp != data.otp_code:
+        raise HTTPException(status_code=400, detail="Invalid OTP")
+
+    # Find and update the user
+    user = db.query(DBUser).filter(DBUser.phone_number == data.phone_number).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if data.full_name:
+        user.full_name = data.full_name
+
+    db.commit()
+    db.refresh(user)
 
     return user
