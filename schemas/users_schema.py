@@ -1,5 +1,5 @@
 from pydantic import BaseModel, StringConstraints
-from typing import Optional
+from typing import Optional, Annotated
 
 # Shared Base
 class UserBase(BaseModel):
