@@ -18,6 +18,9 @@ class UserVerify(BaseModel):
     email: str
     otp_code: Optional[str] = None  # Optional for Google Auth
 
+class UserUpdate(BaseModel):
+    full_name: Optional[constr(strip_whitespace=True, min_length=1)] = None
+    phone_number: Optional[constr(regex=r'^\+2519\d{8}$')] = None
 # Response schema
 class UserResponse(BaseModel):
     id: int
