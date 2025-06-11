@@ -112,7 +112,6 @@ def send_otp(data: UserUpdate, db: Session = Depends(get_db)):
     if real_otp != data.otp_code:
         raise HTTPException(status_code=400, detail="Invalid OTP")
 
-    # Find and update the user
     user = db.query(DBUser).filter(DBUser.phone_number == data.phone_number).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
