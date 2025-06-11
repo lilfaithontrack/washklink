@@ -9,7 +9,7 @@ from models.users import DBUser
 from schemas.users_schema import UserResponse
 from schemas.users_schema import UserUpdate
 from utils.otp_service import generate_otp, send_otp_sms, otp_store
-
+from utils.afromessage import send_otp
 router = APIRouter(prefix="/users", tags=["Users"])
 
 # Google OAuth 2.0 Client ID
