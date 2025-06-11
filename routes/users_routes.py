@@ -40,10 +40,12 @@ class GoogleAuthRequest(BaseModel):
 @router.post("/request-otp")
 def request_otp(data: UserCreate, db: Session = Depends(get_db)):
     otp = generate_otp()
-    sent = send_otp_sms(data.phone_number, otp)
+    
+    # Use the renamed function
+    result = send_afro_otp(data.phone_number)
 
-    if not sent:
-        raise HTTPException(status_code=500, detail="Failed to send OTP")
+    if result.get("Result") != "true":
+        raise HTTPException(status_code=500, detail=result.get("ResponseMsg", "Failed to send OTP"))
 
     otp_store[data.phone_number] = otp
     return {"message": "OTP sent successfully"}
@@ -83,11 +85,14 @@ def google_auth(data: GoogleAuthRequest, db: Session = Depends(get_db)):
 @router.post("/verify-otp", response_model=UserResponse)
 def verify_otp(data: UserVerify, db: Session = Depends(get_db)):
     real_otp = otp_store.get(data.phone_number)
-    if real_otp != data.otp_code:
-        raise HTTPException(status_code=400, detail="Invalid OTP")
 
+    if not real_otp or real_otp != data.otp_code:
+        raise HTTPException(status_code=400, detail="Invalid or expired OTP")
+
+    # Check if the user exists
     user = db.query(DBUser).filter(DBUser.phone_number == data.phone_number).first()
 
+    # Create user if not exists
     if not user:
         user = DBUser(
             phone_number=data.phone_number,
@@ -98,19 +103,18 @@ def verify_otp(data: UserVerify, db: Session = Depends(get_db)):
         db.commit()
         db.refresh(user)
 
-
-    # Remove OTP after verification
-    del otp_store[data.phone_number]
+    # OTP verified, remove from store
+    otp_store.pop(data.phone_number, None)
 
     return user
 
 
 @router.put("/send-otp", response_model=UserResponse)
-def send_otp(data: UserUpdate, db: Session = Depends(get_db)):
+def send_otp_profile_update(data: UserUpdate, db: Session = Depends(get_db)):
     real_otp = otp_store.get(data.phone_number)
 
-    if real_otp != data.otp_code:
-        raise HTTPException(status_code=400, detail="Invalid OTP")
+    if not real_otp or real_otp != data.otp_code:
+        raise HTTPException(status_code=400, detail="Invalid or expired OTP")
 
     user = db.query(DBUser).filter(DBUser.phone_number == data.phone_number).first()
     if not user:
@@ -121,5 +125,8 @@ def send_otp(data: UserUpdate, db: Session = Depends(get_db)):
 
     db.commit()
     db.refresh(user)
+
+    # Remove used OTP
+    otp_store.pop(data.phone_number, None)
 
     return user
