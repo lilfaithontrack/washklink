@@ -17,6 +17,10 @@ class Settings(BaseSettings):
     AFRO_MESSAGE_LEN: int = 6
     AFRO_MESSAGE_T: int = 0
 
+    # Add these Google Auth fields as optional
+    google_client_id: Optional[str] = None
+    google_client_secret: Optional[str] = None
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
