@@ -1,5 +1,8 @@
 import httpx
 from models.config import get_settings
+import logging
+
+logger = logging.getLogger(__name__)
 
 def send_otp(mobile: str) -> dict:
     settings = get_settings()
@@ -11,28 +14,40 @@ def send_otp(mobile: str) -> dict:
             "ResponseMsg": "Mobile number is required!"
         }
 
-    url = (
-        f"{settings.AFRO_MESSAGE_BASE_URL}/challenge?"
-        f"from={settings.AFRO_MESSAGE_IDENTIFIER_ID}"
-        f"&sender={settings.AFRO_MESSAGE_SENDER_NAME}"
-        f"&to={mobile}"
-        f"&ps="
-        f"&sb={settings.AFRO_MESSAGE_SB}"
-        f"&sa={settings.AFRO_MESSAGE_SA}"
-        f"&ttl={settings.AFRO_MESSAGE_TTL}"
-        f"&len={settings.AFRO_MESSAGE_LEN}"
-        f"&t={settings.AFRO_MESSAGE_T}"
-        f"&callback={settings.AFRO_MESSAGE_CALLBACK}"
-    )
+    params = {
+        "from": settings.AFRO_MESSAGE_IDENTIFIER_ID,
+        "sender": settings.AFRO_MESSAGE_SENDER_NAME,
+        "to": mobile,
+        "ps": "",
+        "sb": settings.AFRO_MESSAGE_SB,
+        "sa": settings.AFRO_MESSAGE_SA,
+        "ttl": settings.AFRO_MESSAGE_TTL,
+        "len": settings.AFRO_MESSAGE_LEN,
+        "t": settings.AFRO_MESSAGE_T,
+        "callback": settings.AFRO_MESSAGE_CALLBACK,
+    }
 
     headers = {
         "Authorization": f"Bearer {settings.AFRO_MESSAGE_API_KEY}"
     }
 
     try:
-        response = httpx.get(url, headers=headers)
+        response = httpx.get(
+            f"{settings.AFRO_MESSAGE_BASE_URL}/challenge",
+            headers=headers,
+            params=params,
+            timeout=10
+        )
         response.raise_for_status()
-        data = response.json()
+
+        try:
+            data = response.json()
+        except ValueError:
+            return {
+                "ResponseCode": "500",
+                "Result": "false",
+                "ResponseMsg": "Invalid JSON response from OTP provider"
+            }
 
         if data.get("acknowledge") == "success":
             return {
@@ -48,6 +63,7 @@ def send_otp(mobile: str) -> dict:
             }
 
     except httpx.HTTPError as e:
+        logger.error(f"OTP sending failed: {e}")
         return {
             "ResponseCode": "500",
             "Result": "false",
