@@ -1,5 +1,5 @@
 import httpx
-from settings import get_settings
+from models.config import get_settings
 
 def send_otp(mobile: str) -> dict:
     settings = get_settings()
