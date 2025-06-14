@@ -21,6 +21,7 @@ class UserVerify(BaseModel):
 class UserUpdate(BaseModel):
     full_name: Optional[str] = None
     phone_number: Annotated[str, StringConstraints(pattern=r'^\+2519\d{8}$')]
+    otp_code: str
   
 # Response schema
 class UserResponse(BaseModel):
