@@ -5,8 +5,8 @@ from pydantic import BaseModel, EmailStr
 
 from database import SessionLocal
 from models.users import DBUser
-from schemas.users_schema import UserResponse, UserCreate, UserVerify, UserUpdate
-from utils.afromessage import send_otp as send_afro_otp, verify_otp  # You must implement verify_otp
+from schemas.users_schema import UserResponse, UserCreate, UserUpdate
+from utils.afromessage import send_otp as send_afro_otp, verify_otp
 
 router = APIRouter()
 
@@ -30,35 +30,29 @@ class UserVerify(BaseModel):
     full_name: str
     email: EmailStr | None = None
 
-
 @router.post("/auth/login", response_model=UserResponse)
 def login(user: UserVerify, db: Session = Depends(get_db)):
-    phone = user.phone_number
-    otp_code = user.otp_code
-
-    # Step 1: Verify OTP
-    if not verify_otp(phone, otp_code):
+    # Step 1: Verify OTP using AfroMessage API
+    if not verify_otp(user.phone_number, user.otp_code):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired OTP"
         )
 
-    # Step 2: Find or Create User
-    db_user = db.query(DBUser).filter(DBUser.phone_number == phone).first()
+    # Step 2: Find or create user
+    db_user = db.query(DBUser).filter(DBUser.phone_number == user.phone_number).first()
 
     if not db_user:
         db_user = DBUser(
             full_name=user.full_name,
-            phone_number=phone,
+            phone_number=user.phone_number,
             email=user.email,
             is_active=True,
         )
         db.add(db_user)
         db.commit()
         db.refresh(db_user)
-
     else:
-        # Step 3: Update user info if needed
         updated = False
         if user.full_name != db_user.full_name:
             db_user.full_name = user.full_name
@@ -66,11 +60,10 @@ def login(user: UserVerify, db: Session = Depends(get_db)):
         if user.email and user.email != db_user.email:
             db_user.email = user.email
             updated = True
-
         if updated:
             db.commit()
 
-    # Step 4: Return user response
+    # Step 3: Return user response
     return UserResponse(
         id=db_user.id,
         full_name=db_user.full_name,
