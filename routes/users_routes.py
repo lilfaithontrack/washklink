@@ -43,7 +43,7 @@ class GoogleAuthRequest(BaseModel):
 def request_otp(data: UserCreate, db: Session = Depends(get_db)):
     otp = generate_otp()
     
-    result = send_afro_otp(data.phone_number)
+    result = send_afro_otp(data.phone_number ,otp)
 
     if result.get("Result") != "true":
         raise HTTPException(status_code=500, detail=result.get("ResponseMsg", "Failed to send OTP"))
