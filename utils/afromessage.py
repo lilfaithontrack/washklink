@@ -4,7 +4,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-def send_otp(mobile: str) -> dict:
+def send_otp(phone_number: str, otp:str) -> dict:
     settings = get_settings()
 
     if not mobile:
