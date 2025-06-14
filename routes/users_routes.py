@@ -180,11 +180,13 @@ def verify_phone_and_update_profile(
     except json.JSONDecodeError:
         raise HTTPException(status_code=500, detail="Server error.")
 
+    if otp_entry.get("expires_at", 0) < time.time():
+        raise HTTPException(status_code=400, detail="Expired OTP. Please request a new one.")
+
     if (
         otp_entry.get("otp") != data.otp_code or
         otp_entry.get("action") != "verify_phone_for_user" or
-        otp_entry.get("user_id") != current_user.id or
-        otp_entry.get("expires_at", 0) < time.time()
+        otp_entry.get("user_id") != current_user.id
     ):
         raise HTTPException(status_code=400, detail="Invalid OTP. Please try again.")
 
