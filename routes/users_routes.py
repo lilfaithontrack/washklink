@@ -1,4 +1,5 @@
 import time
+import json
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, EmailStr
@@ -9,12 +10,14 @@ from database import SessionLocal
 from models.users import DBUser
 from schemas.users_schema import UserResponse, UserUpdate
 from utils.otp_service import generate_otp, otp_store
-from utils.afromessage import send_otp as send_afro_otp
+from utils.afromessage import send_otp as send_afro_otp  # Note: renamed here for clarity
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
+# Google OAuth 2.0 Client ID
 GOOGLE_CLIENT_ID = "1038087912249-85n553k9b73khia51v7doc6orsau9nov.apps.googleusercontent.com"
 
+# Dependency to get a database session
 def get_db():
     db = SessionLocal()
     try:
@@ -22,57 +25,38 @@ def get_db():
     finally:
         db.close()
 
-# Schemas (adjusted for OTP usage)
+# Pydantic models for request bodies
 class UserCreate(BaseModel):
     phone_number: str
 
 class UserVerify(BaseModel):
     phone_number: str
     otp_code: str
-    full_name: str | None = None
-    email: EmailStr | None = None
-
-class UserUpdate(BaseModel):
-    phone_number: str
-    otp_code: str
-    full_name: str | None = None
+    full_name: str = None
+    email: EmailStr = None
 
 class GoogleAuthRequest(BaseModel):
     id_token: str
 
-# Helper function: store OTP as dict (not JSON string)
-def store_otp(phone_number: str, otp: str, action: str, expiry_seconds: int = 300):
-    otp_store[phone_number] = {
-        "otp": otp,
-        "action": action,
-        "expires_at": time.time() + expiry_seconds
-    }
-
-# 1. Request OTP for login
+# 1. Request OTP
 @router.post("/request-otp")
-def request_otp(data: UserCreate):
+def request_otp(data: UserCreate, db: Session = Depends(get_db)):
     otp = generate_otp()
+
+    # Pass both phone_number and otp here
     result = send_afro_otp(data.phone_number, otp)
 
     if result.get("Result") != "true":
         raise HTTPException(status_code=500, detail=result.get("ResponseMsg", "Failed to send OTP"))
 
-    store_otp(data.phone_number, otp, "verify_login")
+    # Store OTP with metadata and expiry
+    otp_store[data.phone_number] = json.dumps({
+        "otp": otp,
+        "action": "verify_login",
+        "expires_at": time.time() + 300  # 5 minutes expiry
+    })
 
     return {"message": "OTP sent successfully"}
-
-# 1b. Request OTP for profile update (new endpoint)
-@router.post("/request-otp-profile-update")
-def request_otp_profile_update(data: UserCreate):
-    otp = generate_otp()
-    result = send_afro_otp(data.phone_number, otp)
-
-    if result.get("Result") != "true":
-        raise HTTPException(status_code=500, detail=result.get("ResponseMsg", "Failed to send OTP"))
-
-    store_otp(data.phone_number, otp, "update_profile")
-
-    return {"message": "OTP for profile update sent successfully"}
 
 # 2. Google Authentication
 @router.post("/google-auth", response_model=UserResponse)
@@ -101,22 +85,21 @@ def google_auth(data: GoogleAuthRequest, db: Session = Depends(get_db)):
 
     return user
 
-# 3. Verify OTP (login)
+# 3. Verify OTP
 @router.post("/verify-otp", response_model=UserResponse)
 def verify_otp(data: UserVerify, db: Session = Depends(get_db)):
-    otp_entry = otp_store.get(data.phone_number)
+    otp_entry_raw = otp_store.get(data.phone_number)
 
-    if not otp_entry:
+    if not otp_entry_raw:
         raise HTTPException(status_code=400, detail="OTP not found")
 
-    if otp_entry.get("otp") != data.otp_code:
-        raise HTTPException(status_code=400, detail="Incorrect OTP")
+    try:
+        otp_entry = json.loads(otp_entry_raw) if isinstance(otp_entry_raw, str) else otp_entry_raw
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=500, detail="Corrupted OTP format")
 
-    if otp_entry.get("action") != "verify_login":
-        raise HTTPException(status_code=400, detail="OTP not valid for login")
-
-    if otp_entry.get("expires_at", 0) < time.time():
-        raise HTTPException(status_code=400, detail="OTP expired")
+    if otp_entry.get("otp") != data.otp_code or otp_entry.get("expires_at", 0) < time.time():
+        raise HTTPException(status_code=400, detail="Invalid or expired OTP")
 
     user = db.query(DBUser).filter(DBUser.phone_number == data.phone_number).first()
     if not user:
@@ -132,22 +115,25 @@ def verify_otp(data: UserVerify, db: Session = Depends(get_db)):
     otp_store.pop(data.phone_number, None)
     return user
 
-# 4. Update Profile (Verify OTP and update)
+# 4. Update Profile (Send OTP Verification)
 @router.put("/send-otp", response_model=UserResponse)
 def send_otp_profile_update(data: UserUpdate, db: Session = Depends(get_db)):
-    otp_entry = otp_store.get(data.phone_number)
+    otp_entry_raw = otp_store.get(data.phone_number)
 
-    if not otp_entry:
+    if not otp_entry_raw:
         raise HTTPException(status_code=400, detail="OTP not found")
 
-    if otp_entry.get("otp") != data.otp_code:
-        raise HTTPException(status_code=400, detail="Incorrect OTP")
+    try:
+        otp_entry = json.loads(otp_entry_raw) if isinstance(otp_entry_raw, str) else otp_entry_raw
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=500, detail="Corrupted OTP format")
 
-    if otp_entry.get("action") != "update_profile":
-        raise HTTPException(status_code=400, detail="OTP not valid for profile update")
-
-    if otp_entry.get("expires_at", 0) < time.time():
-        raise HTTPException(status_code=400, detail="OTP expired")
+    if (
+        otp_entry.get("otp") != data.otp_code or
+        otp_entry.get("action") != "update_profile" or
+        otp_entry.get("expires_at", 0) < time.time()
+    ):
+        raise HTTPException(status_code=400, detail="Invalid or expired OTP")
 
     user = db.query(DBUser).filter(DBUser.phone_number == data.phone_number).first()
     if not user:
