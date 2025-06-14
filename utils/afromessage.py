@@ -4,7 +4,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-def send_otp(mobile: str) -> dict:
+def send_otp(mobile: str, otp: str) -> dict:
     settings = get_settings()
 
     if not mobile:
@@ -14,17 +14,13 @@ def send_otp(mobile: str) -> dict:
             "ResponseMsg": "Mobile number is required!"
         }
 
-    params = {
+    message = f"Your OTP is {otp}. It will expire in 5 minutes."
+
+    payload = {
         "from": settings.AFRO_MESSAGE_IDENTIFIER_ID,
         "sender": settings.AFRO_MESSAGE_SENDER_NAME,
         "to": mobile,
-        "ps": "",
-        "sb": settings.AFRO_MESSAGE_SB,
-        "sa": settings.AFRO_MESSAGE_SA,
-        "ttl": settings.AFRO_MESSAGE_TTL,
-        "len": settings.AFRO_MESSAGE_LEN,
-        "t": settings.AFRO_MESSAGE_T,
-        "callback": settings.AFRO_MESSAGE_CALLBACK,
+        "text": message,
     }
 
     headers = {
@@ -32,36 +28,18 @@ def send_otp(mobile: str) -> dict:
     }
 
     try:
-        response = httpx.get(
-            f"{settings.AFRO_MESSAGE_BASE_URL}/challenge",
+        response = httpx.post(
+            f"{settings.AFRO_MESSAGE_BASE_URL}/send-sms",  # Adjust endpoint as needed
             headers=headers,
-            params=params,
+            data=payload,
             timeout=10
         )
         response.raise_for_status()
-
-        try:
-            data = response.json()
-        except ValueError:
-            return {
-                "ResponseCode": "500",
-                "Result": "false",
-                "ResponseMsg": "Invalid JSON response from OTP provider"
-            }
-
-        if data.get("acknowledge") == "success":
-            return {
-                "ResponseCode": "200",
-                "Result": "true",
-                "ResponseMsg": "Check your message!"
-            }
-        else:
-            return {
-                "ResponseCode": "200",
-                "Result": "false",
-                "ResponseMsg": "Please try again!"
-            }
-
+        return {
+            "ResponseCode": "200",
+            "Result": "true",
+            "ResponseMsg": "OTP sent successfully!"
+        }
     except httpx.HTTPError as e:
         logger.error(f"OTP sending failed: {e}")
         return {
@@ -69,3 +47,4 @@ def send_otp(mobile: str) -> dict:
             "Result": "false",
             "ResponseMsg": f"HTTP error occurred: {str(e)}"
         }
+
