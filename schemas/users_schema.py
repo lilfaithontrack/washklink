@@ -1,34 +1,37 @@
-from pydantic import BaseModel, StringConstraints
+from pydantic import BaseModel, StringConstraints, EmailStr
 from typing import Optional, Annotated
+
+# Optional phone with +251 validation
+PhoneNumberStr = Annotated[str, StringConstraints(pattern=r'^\+2519\d{8}$')]
 
 # Shared Base
 class UserBase(BaseModel):
     full_name: str
-    phone_number: Optional[str]
-    email: str
+    phone_number: Optional[PhoneNumberStr]
+    email: Optional[EmailStr] = None
 
-# For requesting OTP (basic)
+# For requesting OTP
 class UserCreate(BaseModel):
-    phone_number: str
-
-# For verifying OTP or Google Auth
-class UserVerify(BaseModel):
+    phone_number: PhoneNumberStr
     full_name: str
-    phone_number: Optional[str]
-    email: str
-    otp_code: Optional[str] = None  # Optional for Google Auth
 
+# For verifying OTP and logging in
+class UserVerify(UserCreate):  # Inherits full_name, phone_number
+    email: Optional[EmailStr] = None
+    otp_code: str
+
+# For updating profile
 class UserUpdate(BaseModel):
     full_name: Optional[str] = None
-    phone_number: Annotated[str, StringConstraints(pattern=r'^\+2519\d{8}$')]
+    phone_number: PhoneNumberStr
     otp_code: str
-  
-# Response schema
+
+# Auth response
 class UserResponse(BaseModel):
     id: int
     full_name: str
     phone_number: Optional[str]
-    email: str
+    email: Optional[str]
     is_active: bool
 
     class Config:
