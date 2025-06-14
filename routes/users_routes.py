@@ -42,13 +42,17 @@ class GoogleAuthRequest(BaseModel):
 def request_otp(data: UserCreate, db: Session = Depends(get_db)):
     otp = generate_otp()
     
-    # Use the renamed function
     result = send_afro_otp(data.phone_number)
 
     if result.get("Result") != "true":
         raise HTTPException(status_code=500, detail=result.get("ResponseMsg", "Failed to send OTP"))
 
-    otp_store[data.phone_number] = otp
+    otp_store[data.phone_number] = {
+        "otp": otp,
+        "action": "update_profile",
+        "expires_at": time.time() + 300  # OTP valid for 5 minutes
+    }
+    
     return {"message": "OTP sent successfully"}
 
 # 2. Google Authentication
