@@ -1,23 +1,16 @@
 import time
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from pydantic import BaseModel, EmailStr
-from google.oauth2 import id_token
-from google.auth.transport import requests
 
 from database import SessionLocal
 from models.users import DBUser
-from schemas.users_schema import UserResponse
-from schemas.users_schema import UserUpdate
-from utils.otp_service import generate_otp, send_otp_sms, otp_store
+from schemas.users_schema import UserResponse, UserCreate, UserVerify
 from utils.afromessage import send_otp as send_afro_otp
+from utils.jwt import create_jwt_token  # Assuming you have this utility
 
-router = APIRouter(prefix="/users", tags=["Users"])
+router = APIRouter()
 
-# Google OAuth 2.0 Client ID
-GOOGLE_CLIENT_ID = "1038087912249-85n553k9b73khia51v7doc6orsau9nov.apps.googleusercontent.com"
-
-# Dependency to get a database session
+# Dependency to get DB session
 def get_db():
     db = SessionLocal()
     try:
@@ -25,129 +18,61 @@ def get_db():
     finally:
         db.close()
 
-# Pydantic models for request bodies
-class UserCreate(BaseModel):
-    phone_number: str
+@router.post("/auth/request-otp")
+def request_otp(user: UserCreate):
+    # Send OTP via Afro API
+    response = send_afro_otp(user.phone_number)
+    if response.get("ResponseCode") != "200":
+        raise HTTPException(status_code=500, detail=response.get("ResponseMsg", "Failed to send OTP"))
 
-class UserVerify(BaseModel):
-    phone_number: str
-    otp_code: str
-    full_name: str = None
-    email: EmailStr = None
-
-class GoogleAuthRequest(BaseModel):
-    id_token: str
-
-# 1. Request OTP
-@router.post("/request-otp")
-def request_otp(data: UserCreate, db: Session = Depends(get_db)):
-    otp = generate_otp()
-    
-    result = send_afro_otp(data.phone_number ,otp)
-
-    if result.get("Result") != "true":
-        raise HTTPException(status_code=500, detail=result.get("ResponseMsg", "Failed to send OTP"))
-
-    otp_store[data.phone_number] = {
-        "otp": otp,
-        "action": "update_profile",
-        "expires_at": time.time() + 300  # OTP valid for 5 minutes
-    }
-    
     return {"message": "OTP sent successfully"}
 
-# 2. Google Authentication
-@router.post("/google-auth", response_model=UserResponse)
-def google_auth(data: GoogleAuthRequest, db: Session = Depends(get_db)):
-    try:
-        # Verify token with Google
-        info = id_token.verify_oauth2_token(
-            data.id_token,
-            requests.Request(),
-            GOOGLE_CLIENT_ID
+@router.post("/auth/login", response_model=UserResponse)
+def login(user: UserVerify, db: Session = Depends(get_db)):
+    phone = user.phone_number
+    otp_code = user.otp_code
+
+    # Here you need to verify the OTP with AfroMessage API
+    # Assuming you have a verify_otp function in utils.afromessage (you need to implement this)
+    from utils.afromessage import verify_otp  # You need to implement this
+
+    is_valid = verify_otp(phone, otp_code)
+    if not is_valid:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid OTP")
+
+    # OTP valid, find or create user
+    db_user = db.query(DBUser).filter(DBUser.phone_number == phone).first()
+
+    if not db_user:
+        db_user = DBUser(
+            full_name=user.full_name,
+            phone_number=phone,
+            email=user.email,
+            is_active=True,
         )
-    except Exception:
-        raise HTTPException(status_code=401, detail="Invalid Google token")
-
-    email = info.get("email")
-    full_name = info.get("name")
-    phone_number = None  # Usually not provided by Google
-
-    if not email:
-        raise HTTPException(status_code=400, detail="Email not found in token")
-
-    # Check if user exists
-    user = db.query(DBUser).filter(DBUser.email == email).first()
-    if not user:
-        # Create new user
-        user = DBUser(full_name=full_name, email=email, phone_number=phone_number)
-        db.add(user)
+        db.add(db_user)
         db.commit()
-        db.refresh(user)
+        db.refresh(db_user)
+    else:
+        # Optionally update email and fullname if changed
+        updated = False
+        if user.full_name != db_user.full_name:
+            db_user.full_name = user.full_name
+            updated = True
+        if user.email and user.email != db_user.email:
+            db_user.email = user.email
+            updated = True
+        if updated:
+            db.commit()
 
-    return user
+    # Create JWT token
+    token = create_jwt_token({"user_id": db_user.id})
 
-# 3. Verify OTP
-@router.put("/verify-otp-update", response_model=UserResponse)
-def send_otp_profile_update(data: UserUpdate, db: Session = Depends(get_db)):
-    otp_entry = otp_store.get(data.phone_number)
-
-    # If no OTP or it's invalid/expired
-    if (
-        not isinstance(otp_entry, dict) or
-        otp_entry.get("otp") != data.otp_code or
-        otp_entry.get("action") != "update_profile" or
-        otp_entry.get("expires_at", 0) < time.time()
-    ):
-        raise HTTPException(status_code=400, detail="Invalid or expired OTP")
-
-    # Fetch user from DB
-    user = db.query(DBUser).filter(DBUser.phone_number == data.phone_number).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    # Apply updates (only full name for now)
-    if data.full_name:
-        user.full_name = data.full_name
-
-    db.commit()
-    db.refresh(user)
-
-    # Remove OTP after use
-    otp_store.pop(data.phone_number, None)
-
-    return user
-
-@router.put("/send-otp", response_model=UserResponse)
-def send_otp_profile_update(data: UserUpdate, db: Session = Depends(get_db)):
-    otp_entry = otp_store.get(data.phone_number)
-
-    if not isinstance(otp_entry, dict):
-        raise HTTPException(status_code=400, detail="No OTP request found for this phone number")
-
-    if otp_entry.get("expires_at", 0) < time.time():
-        otp_store.pop(data.phone_number, None)
-        raise HTTPException(status_code=400, detail="OTP has expired. Please request a new one.")
-
-    if otp_entry.get("otp") != data.otp_code:
-        raise HTTPException(status_code=400, detail="Incorrect OTP")
-
-    if otp_entry.get("action") != "update_profile":
-        raise HTTPException(status_code=400, detail="OTP action mismatch")
-
-    user = db.query(DBUser).filter(DBUser.phone_number == data.phone_number).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    if data.full_name:
-        user.full_name = data.full_name
-
-    if data.email:
-        user.email = data.email
-
-    db.commit()
-    db.refresh(user)
-
-    otp_store.pop(data.phone_number, None)
-
-    return user
+    return UserResponse(
+        id=db_user.id,
+        full_name=db_user.full_name,
+        phone_number=db_user.phone_number,
+        email=db_user.email,
+        is_active=db_user.is_active,
+        # Optionally return token here
+    )
