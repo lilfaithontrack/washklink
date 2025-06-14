@@ -1,13 +1,12 @@
-from sqlalchemy import Column, Integer, String, Float, Boolean, ForeignKey, JSON 
+from sqlalchemy import Column, Integer, String, Float, Boolean, ForeignKey, JSON, Enum as SQLEnum
 from enum import Enum
 from sqlalchemy.orm import relationship
 from database import Base
 
-class ServiceTypeEnum(enum.Enum):
+class ServiceTypeEnum(Enum):
     BY_HAND = "By Hand Wash"
     MACHINE = "Machine Wash"
     PREMIUM = "Premium Laundry Service"
-
 
 class Booking(Base):
     __tablename__ = "bookings"
@@ -25,6 +24,9 @@ class Booking(Base):
     delivery_charge = Column(Float, default=0.0)
     cash_on_delivery = Column(Boolean, default=False)
     note = Column(String(255), nullable=True)
-    service_type = Column(Enum(ServiceTypeEnum), nullable=False, default=ServiceTypeEnum.MACHINE)
+
+    # Use SQLAlchemy's Enum type with your Python Enum
+    service_type = Column(SQLEnum(ServiceTypeEnum), nullable=False, default=ServiceTypeEnum.MACHINE)
+    
     # Relationship to user table
     user = relationship("DBUser", back_populates="bookings")
