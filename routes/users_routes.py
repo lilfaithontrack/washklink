@@ -116,35 +116,41 @@ def google_auth(data: GoogleAuthRequest, db: Session = Depends(get_db)):
     return user
 
 # 4. Update Profile with OTP verification
-@router.put("/send-otp", response_model=UserResponse)
-def send_otp_profile_update(data: UserUpdate, db: Session = Depends(get_db)):
+@router.put("/update-profile", response_model=UserResponse) # <-- Renamed path for clarity
+def update_profile(data: UserUpdate, db: Session = Depends(get_db)): # <-- Renamed function
     otp_entry_raw = otp_store.get(data.phone_number)
 
     if not otp_entry_raw:
-        raise HTTPException(status_code=400, detail="OTP not found")
+        raise HTTPException(status_code=400, detail="OTP not found or expired")
 
     try:
         otp_entry = json.loads(otp_entry_raw) if isinstance(otp_entry_raw, str) else otp_entry_raw
     except json.JSONDecodeError:
         raise HTTPException(status_code=500, detail="Corrupted OTP format")
 
+    # This condition will now work correctly if you use the new endpoint above
     if (
         otp_entry.get("otp") != data.otp_code or
         otp_entry.get("action") != "update_profile" or
         otp_entry.get("expires_at", 0) < time.time()
     ):
-        raise HTTPException(status_code=400, detail="Invalid or expired OTP")
+        raise HTTPException(status_code=400, detail="Invalid or expired OTP for profile update")
 
     user = db.query(DBUser).filter(DBUser.phone_number == data.phone_number).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
+    # Update user details
     if data.full_name:
         user.full_name = data.full_name
+    
+    # You could add other fields to update here, e.g., email
+    # if data.email:
+    #     user.email = data.email
 
     db.commit()
     db.refresh(user)
 
-    otp_store.pop(data.phone_number, None)
+    otp_store.pop(data.phone_number, None) # Clean up used OTP
 
     return user
