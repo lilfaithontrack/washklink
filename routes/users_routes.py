@@ -84,30 +84,35 @@ def google_auth(data: GoogleAuthRequest, db: Session = Depends(get_db)):
 
 # 3. Verify OTP
 @router.post("/verify-otp", response_model=UserResponse)
-def verify_otp(data: UserVerify, db: Session = Depends(get_db)):
-    real_otp = otp_store.get(data.phone_number)
+def send_otp_profile_update(data: UserUpdate, db: Session = Depends(get_db)):
+    otp_entry = otp_store.get(data.phone_number)
 
-    if not real_otp or real_otp != data.otp_code:
+    # If no OTP or it's invalid/expired
+    if (
+        not isinstance(otp_entry, dict) or
+        otp_entry.get("otp") != data.otp_code or
+        otp_entry.get("action") != "update_profile" or
+        otp_entry.get("expires_at", 0) < time.time()
+    ):
         raise HTTPException(status_code=400, detail="Invalid or expired OTP")
 
-    # Check if the user exists
+    # Fetch user from DB
     user = db.query(DBUser).filter(DBUser.phone_number == data.phone_number).first()
-
-    # Create user if not exists
     if not user:
-        user = DBUser(
-            phone_number=data.phone_number,
-            full_name=data.full_name or "",
-            email=data.email or None
-        )
-        db.add(user)
-        db.commit()
-        db.refresh(user)
+        raise HTTPException(status_code=404, detail="User not found")
 
-    # OTP verified, remove from store
+    # Apply updates (only full name for now)
+    if data.full_name:
+        user.full_name = data.full_name
+
+    db.commit()
+    db.refresh(user)
+
+    # Remove OTP after use
     otp_store.pop(data.phone_number, None)
 
     return user
+
 
 
 @router.put("/send-otp", response_model=UserResponse)
