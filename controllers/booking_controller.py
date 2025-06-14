@@ -4,6 +4,8 @@ from database import get_db
 from models import booking as models
 from schemas import booking as schemas
 from typing import List
+from enum import Enum
+
 from sqlalchemy import text
 
 booking_router = APIRouter()
