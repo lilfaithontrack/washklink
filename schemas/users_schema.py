@@ -19,6 +19,7 @@ class UserCreate(BaseModel):
 class UserVerify(UserCreate):  # Inherits full_name, phone_number
     email: Optional[EmailStr] = None
     otp_code: str
+    phone_number: PhoneNumberStr
 
 # For updating profile
 class UserUpdate(BaseModel):
