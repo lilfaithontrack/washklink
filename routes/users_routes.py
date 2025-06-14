@@ -10,14 +10,13 @@ from database import SessionLocal
 from models.users import DBUser
 from schemas.users_schema import UserResponse, UserUpdate
 from utils.otp_service import generate_otp, otp_store
-from utils.afromessage import send_otp as send_afro_otp  # Note: renamed here for clarity
+from utils.afromessage import send_otp as send_afro_otp  # Your send_otp(mobile) function
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
-# Google OAuth 2.0 Client ID
 GOOGLE_CLIENT_ID = "1038087912249-85n553k9b73khia51v7doc6orsau9nov.apps.googleusercontent.com"
 
-# Dependency to get a database session
+# Dependency: get DB session
 def get_db():
     db = SessionLocal()
     try:
@@ -25,15 +24,15 @@ def get_db():
     finally:
         db.close()
 
-# Pydantic models for request bodies
+# Request body models
 class UserCreate(BaseModel):
     phone_number: str
 
 class UserVerify(BaseModel):
     phone_number: str
     otp_code: str
-    full_name: str = None
-    email: EmailStr = None
+    full_name: str | None = None
+    email: EmailStr | None = None
 
 class GoogleAuthRequest(BaseModel):
     id_token: str
@@ -41,51 +40,24 @@ class GoogleAuthRequest(BaseModel):
 # 1. Request OTP
 @router.post("/request-otp")
 def request_otp(data: UserCreate, db: Session = Depends(get_db)):
-    otp = generate_otp()
+    otp = generate_otp()  # Generate OTP locally
 
-    # Pass both phone_number and otp here
-    result = send_afro_otp(data.phone_number, otp)
+    # Store OTP with expiry and metadata
+    otp_store[data.phone_number] = json.dumps({
+        "otp": otp,
+        "action": "verify_login",
+        "expires_at": time.time() + 300  # expires in 5 minutes
+    })
+
+    # Send OTP via AfroMessage API (only phone number needed)
+    result = send_afro_otp(data.phone_number)
 
     if result.get("Result") != "true":
         raise HTTPException(status_code=500, detail=result.get("ResponseMsg", "Failed to send OTP"))
 
-    # Store OTP with metadata and expiry
-    otp_store[data.phone_number] = json.dumps({
-        "otp": otp,
-        "action": "verify_login",
-        "expires_at": time.time() + 300  # 5 minutes expiry
-    })
-
     return {"message": "OTP sent successfully"}
 
-# 2. Google Authentication
-@router.post("/google-auth", response_model=UserResponse)
-def google_auth(data: GoogleAuthRequest, db: Session = Depends(get_db)):
-    try:
-        info = id_token.verify_oauth2_token(
-            data.id_token,
-            requests.Request(),
-            GOOGLE_CLIENT_ID
-        )
-    except Exception:
-        raise HTTPException(status_code=401, detail="Invalid Google token")
-
-    email = info.get("email")
-    full_name = info.get("name")
-
-    if not email:
-        raise HTTPException(status_code=400, detail="Email not found in token")
-
-    user = db.query(DBUser).filter(DBUser.email == email).first()
-    if not user:
-        user = DBUser(full_name=full_name, email=email, phone_number=None)
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-
-    return user
-
-# 3. Verify OTP
+# 2. Verify OTP
 @router.post("/verify-otp", response_model=UserResponse)
 def verify_otp(data: UserVerify, db: Session = Depends(get_db)):
     otp_entry_raw = otp_store.get(data.phone_number)
@@ -112,10 +84,38 @@ def verify_otp(data: UserVerify, db: Session = Depends(get_db)):
         db.commit()
         db.refresh(user)
 
-    otp_store.pop(data.phone_number, None)
+    otp_store.pop(data.phone_number, None)  # Remove used OTP
+
     return user
 
-# 4. Update Profile (Send OTP Verification)
+# 3. Google OAuth2 Authentication
+@router.post("/google-auth", response_model=UserResponse)
+def google_auth(data: GoogleAuthRequest, db: Session = Depends(get_db)):
+    try:
+        info = id_token.verify_oauth2_token(
+            data.id_token,
+            requests.Request(),
+            GOOGLE_CLIENT_ID
+        )
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid Google token")
+
+    email = info.get("email")
+    full_name = info.get("name")
+
+    if not email:
+        raise HTTPException(status_code=400, detail="Email not found in token")
+
+    user = db.query(DBUser).filter(DBUser.email == email).first()
+    if not user:
+        user = DBUser(full_name=full_name, email=email, phone_number=None)
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+    return user
+
+# 4. Update Profile with OTP verification
 @router.put("/send-otp", response_model=UserResponse)
 def send_otp_profile_update(data: UserUpdate, db: Session = Depends(get_db)):
     otp_entry_raw = otp_store.get(data.phone_number)
