@@ -116,7 +116,7 @@ def google_auth(data: GoogleAuthRequest, db: Session = Depends(get_db)):
     return user
 
 # 4. Update Profile with OTP verification
-@router.put("/update-profile", response_model=UserResponse) # <-- Renamed path for clarity
+@router.put("/send-otp", response_model=UserResponse) # <-- Renamed path for clarity
 def update_profile(data: UserUpdate, db: Session = Depends(get_db)): # <-- Renamed function
     otp_entry_raw = otp_store.get(data.phone_number)
 
