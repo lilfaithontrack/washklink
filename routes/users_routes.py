@@ -1,4 +1,3 @@
-import time
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -6,11 +5,10 @@ from database import SessionLocal
 from models.users import DBUser
 from schemas.users_schema import UserResponse, UserCreate, UserVerify
 from utils.afromessage import send_otp as send_afro_otp
-from utils.jwt import create_jwt_token  # Assuming you have this utility
+from utils.afromessage import verify_otp  # You need to implement this
 
 router = APIRouter()
 
-# Dependency to get DB session
 def get_db():
     db = SessionLocal()
     try:
@@ -20,11 +18,9 @@ def get_db():
 
 @router.post("/auth/request-otp")
 def request_otp(user: UserCreate):
-    # Send OTP via Afro API
     response = send_afro_otp(user.phone_number)
     if response.get("ResponseCode") != "200":
         raise HTTPException(status_code=500, detail=response.get("ResponseMsg", "Failed to send OTP"))
-
     return {"message": "OTP sent successfully"}
 
 @router.post("/auth/login", response_model=UserResponse)
@@ -32,15 +28,9 @@ def login(user: UserVerify, db: Session = Depends(get_db)):
     phone = user.phone_number
     otp_code = user.otp_code
 
-    # Here you need to verify the OTP with AfroMessage API
-    # Assuming you have a verify_otp function in utils.afromessage (you need to implement this)
-    from utils.afromessage import verify_otp  # You need to implement this
-
-    is_valid = verify_otp(phone, otp_code)
-    if not is_valid:
+    if not verify_otp(phone, otp_code):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid OTP")
 
-    # OTP valid, find or create user
     db_user = db.query(DBUser).filter(DBUser.phone_number == phone).first()
 
     if not db_user:
@@ -54,7 +44,6 @@ def login(user: UserVerify, db: Session = Depends(get_db)):
         db.commit()
         db.refresh(db_user)
     else:
-        # Optionally update email and fullname if changed
         updated = False
         if user.full_name != db_user.full_name:
             db_user.full_name = user.full_name
@@ -65,14 +54,10 @@ def login(user: UserVerify, db: Session = Depends(get_db)):
         if updated:
             db.commit()
 
-    # Create JWT token
-    token = create_jwt_token({"user_id": db_user.id})
-
     return UserResponse(
         id=db_user.id,
         full_name=db_user.full_name,
         phone_number=db_user.phone_number,
         email=db_user.email,
         is_active=db_user.is_active,
-        # Optionally return token here
     )
