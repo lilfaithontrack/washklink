@@ -114,13 +114,12 @@ def send_otp_profile_update(data: UserUpdate, db: Session = Depends(get_db)):
     return user
 
 
-
 @router.put("/send-otp", response_model=UserResponse)
 def send_otp_profile_update(data: UserUpdate, db: Session = Depends(get_db)):
     otp_entry = otp_store.get(data.phone_number)
 
     if (
-        not otp_entry or
+        not isinstance(otp_entry, dict) or
         otp_entry.get("otp") != data.otp_code or
         otp_entry.get("action") != "update_profile" or
         otp_entry.get("expires_at", 0) < time.time()
