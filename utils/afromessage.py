@@ -4,7 +4,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-def send_otp(mobile: str, otp: str) -> dict:
+def send_otp(mobile: str ) -> dict:
     settings = get_settings()
 
     if not mobile:
@@ -18,7 +18,7 @@ def send_otp(mobile: str, otp: str) -> dict:
         "from": settings.AFRO_MESSAGE_IDENTIFIER_ID,
         "sender": settings.AFRO_MESSAGE_SENDER_NAME,
         "to": mobile,
-        "ps": otp,  # OTP passed here
+        "ps": "",
         "sb": settings.AFRO_MESSAGE_SB,
         "sa": settings.AFRO_MESSAGE_SA,
         "ttl": settings.AFRO_MESSAGE_TTL,
@@ -57,22 +57,15 @@ def send_otp(mobile: str, otp: str) -> dict:
             }
         else:
             return {
-                "ResponseCode": "400",
+                "ResponseCode": "200",
                 "Result": "false",
-                "ResponseMsg": data.get("ResponseMsg", "OTP sending failed")
+                "ResponseMsg": "Please try again!"
             }
 
-    except httpx.HTTPStatusError as e:
-        logger.error(f"HTTP error while sending OTP: {e}")
-        return {
-            "ResponseCode": str(e.response.status_code),
-            "Result": "false",
-            "ResponseMsg": f"HTTP error: {e.response.text}"
-        }
-    except Exception as e:
-        logger.error(f"Unexpected error while sending OTP: {e}")
+    except httpx.HTTPError as e:
+        logger.error(f"OTP sending failed: {e}")
         return {
             "ResponseCode": "500",
             "Result": "false",
-            "ResponseMsg": f"Unexpected error: {str(e)}"
+            "ResponseMsg": f"HTTP error occurred: {str(e)}"
         }
