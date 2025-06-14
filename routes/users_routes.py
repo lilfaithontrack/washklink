@@ -24,14 +24,26 @@ def request_otp(user: UserCreate):
         raise HTTPException(status_code=500, detail=response.get("ResponseMsg", "Failed to send OTP"))
     return {"message": "OTP sent successfully"}
 
+class UserVerify(BaseModel):
+    phone_number: str
+    otp_code: str
+    full_name: str
+    email: EmailStr | None = None
+
+
 @router.post("/auth/login", response_model=UserResponse)
 def login(user: UserVerify, db: Session = Depends(get_db)):
     phone = user.phone_number
     otp_code = user.otp_code
 
+    # Step 1: Verify OTP
     if not verify_otp(phone, otp_code):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid OTP")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired OTP"
+        )
 
+    # Step 2: Find or Create User
     db_user = db.query(DBUser).filter(DBUser.phone_number == phone).first()
 
     if not db_user:
@@ -44,7 +56,9 @@ def login(user: UserVerify, db: Session = Depends(get_db)):
         db.add(db_user)
         db.commit()
         db.refresh(db_user)
+
     else:
+        # Step 3: Update user info if needed
         updated = False
         if user.full_name != db_user.full_name:
             db_user.full_name = user.full_name
@@ -52,9 +66,11 @@ def login(user: UserVerify, db: Session = Depends(get_db)):
         if user.email and user.email != db_user.email:
             db_user.email = user.email
             updated = True
+
         if updated:
             db.commit()
 
+    # Step 4: Return user response
     return UserResponse(
         id=db_user.id,
         full_name=db_user.full_name,
