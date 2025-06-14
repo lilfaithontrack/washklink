@@ -1,4 +1,5 @@
 import httpx
+import os
 from models.config import get_settings
 import logging
 
