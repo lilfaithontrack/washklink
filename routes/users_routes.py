@@ -1,15 +1,12 @@
 import time
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, EmailStr
-from google.oauth2 import id_token
-from google.auth.transport import requests
 
 from database import SessionLocal
 from models.users import DBUser
-from schemas.users_schema import UserResponse
-from schemas.users_schema import UserUpdate
-from utils.afromessage import send_otp as send_afro_otp
+from schemas.users_schema import UserResponse, UserCreate, UserVerify, UserUpdate
+from utils.afromessage import send_otp as send_afro_otp, verify_otp  # You must implement verify_otp
 
 router = APIRouter()
 
