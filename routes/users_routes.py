@@ -84,34 +84,6 @@ def google_auth(data: GoogleAuthRequest, db: Session = Depends(get_db)):
 
 # 3. Verify OTP
 @router.post("/verify-otp", response_model=UserResponse)
-def send_otp_profile_update(data: UserUpdate, db: Session = Depends(get_db)):
-    otp_entry = otp_store.get(data.phone_number)
-
-    # If no OTP or it's invalid/expired
-    if (
-        not isinstance(otp_entry, dict) or
-        otp_entry.get("otp") != data.otp_code or
-        otp_entry.get("action") != "update_profile" or
-        otp_entry.get("expires_at", 0) < time.time()
-    ):
-        raise HTTPException(status_code=400, detail="Invalid or expired OTP")
-
-    # Fetch user from DB
-    user = db.query(DBUser).filter(DBUser.phone_number == data.phone_number).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    # Apply updates (only full name for now)
-    if data.full_name:
-        user.full_name = data.full_name
-
-    db.commit()
-    db.refresh(user)
-
-    # Remove OTP after use
-    otp_store.pop(data.phone_number, None)
-
-    return user
 
 
 @router.put("/send-otp", response_model=UserResponse)
@@ -134,7 +106,41 @@ def send_otp_profile_update(data: UserUpdate, db: Session = Depends(get_db)):
         user.full_name = data.full_name
 
     db.commit()
+    db.refresh(user)def send_otp_profile_update(data: UserUpdate, db: Session = Depends(get_db)):
+    otp_entry = otp_store.get(data.phone_number)
+
+    # Check OTP format
+    if not isinstance(otp_entry, dict):
+        raise HTTPException(status_code=400, detail="No OTP request found for this phone number")
+
+    # Check if expired
+    if otp_entry.get("expires_at", 0) < time.time():
+        otp_store.pop(data.phone_number, None)  # Clean up expired
+        raise HTTPException(status_code=400, detail="OTP has expired. Please request a new one.")
+
+    # Check if OTP and action match
+    if otp_entry.get("otp") != data.otp_code:
+        raise HTTPException(status_code=400, detail="Incorrect OTP")
+
+    if otp_entry.get("action") != "update_profile":
+        raise HTTPException(status_code=400, detail="OTP action mismatch")
+
+    # Lookup user
+    user = db.query(DBUser).filter(DBUser.phone_number == data.phone_number).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Apply updates
+    if data.full_name:
+        user.full_name = data.full_name
+
+    db.commit()
     db.refresh(user)
+
+    # Remove OTP after use
+    otp_store.pop(data.phone_number, None)
+
+    return user
 
     otp_store.pop(data.phone_number, None)
 
