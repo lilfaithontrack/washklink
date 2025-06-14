@@ -1,5 +1,6 @@
 import httpx
 import os
+import requests
 from models.config import get_settings
 import logging
 
