@@ -7,7 +7,7 @@ class DBUser(Base):
     
     id = Column(Integer, primary_key=True, index=True, unique=True)
     full_name = Column(String(255), nullable=False)  # full name from Google
-    email = Column(String(255), unique=True, nullable=False)  # email from Google Auth
+    email = Column(String(255), unique=True, nullable=True)  # email from Google Auth
     phone_number = Column(String(255), nullable=True)
     is_active = Column(Boolean, default=True)
 
