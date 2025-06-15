@@ -19,7 +19,7 @@ app = FastAPI()
 # Allowed CORS origins
 origins = [
     "http://localhost:5173",
-    "https://washlinnk.com"
+    "https://washlinnk.com",
     "https://washlink.et",
 ]
 
