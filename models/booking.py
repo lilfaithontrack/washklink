@@ -7,6 +7,7 @@ class ServiceTypeEnum(Enum):
     BY_HAND = "By Hand Wash"
     MACHINE = "Machine Wash"
     PREMIUM = "Premium Laundry Service"
+    MACHINE_WASH = 'Machine Wash'
 
 class Booking(Base):
     __tablename__ = "bookings"
