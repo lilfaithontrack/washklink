@@ -14,7 +14,8 @@ class BookingItem(BaseModel):
     quantity: int
     price: float
     service_type: ServiceTypeEnum  # <-- Add service_type here
-
+         class Config:
+        orm_mode = True
 class BookingCreate(BaseModel):
     user_id: int
     items: List[BookingItem]
@@ -23,7 +24,7 @@ class BookingCreate(BaseModel):
     delivery_km: float = 0.0
     cash_on_delivery: bool = False
     note: Optional[str] = None
-    service_type: ServiceType  #
+    
 class BookingOut(BaseModel):
     id: int
     user_id: int
