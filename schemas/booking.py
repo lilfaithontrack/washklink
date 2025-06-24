@@ -23,7 +23,7 @@ class BookingCreate(BaseModel):
     delivery_km: float = 0.0
     cash_on_delivery: bool = False
     note: Optional[str] = None
-
+    service_type: ServiceType  #
 class BookingOut(BaseModel):
     id: int
     user_id: int
@@ -36,6 +36,6 @@ class BookingOut(BaseModel):
     delivery_charge: float
     cash_on_delivery: bool
     note: Optional[str]
-
+    service_type: ServiceType  #
     class Config:
         orm_mode = True
