@@ -19,7 +19,7 @@ class BookingItem(BaseModel):
 
 class BookingCreate(BaseModel):
     user_id: int
-    items: List[BookingItem]
+    items: Optional[List[BookingItem]] = []
     payment_option: Optional[str]
     delivery: bool = False
     delivery_km: float = 0.0
@@ -29,7 +29,7 @@ class BookingCreate(BaseModel):
 class BookingOut(BaseModel):
     id: int
     user_id: int
-    items: List[BookingItem]
+    items: Optional[List[BookingItem]] = []
     price_tag: float
     subtotal: float
     payment_option: Optional[str]
