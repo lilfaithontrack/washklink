@@ -13,8 +13,7 @@ class BookingItem(BaseModel):
     category_id: int
     quantity: int
     price: float
-  service_type: Optional[ServiceTypeEnum] = None  # ✅ Correct enum usage
-
+    service_type: Optional[ServiceTypeEnum] = None 
     class Config:
         orm_mode = True  # Add this if you're returning BookingItem in response
 
