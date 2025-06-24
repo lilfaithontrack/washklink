@@ -2,7 +2,7 @@ import time
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, EmailStr
-
+from typing import List 
 from database import SessionLocal
 from models.users import DBUser
 from schemas.users_schema import UserResponse, UserCreate, UserUpdate
@@ -71,3 +71,16 @@ def login(user: UserVerify, db: Session = Depends(get_db)):
         email=db_user.email,
         is_active=db_user.is_active,
     )
+
+@router.get("/users", response_model=List[UserResponse])
+def get_all_users(db: Session = Depends(get_db)):
+    users = db.query(DBUser).all()
+    return users
+
+
+@router.get("/users/{user_id}", response_model=UserResponse)
+def get_user_by_id(user_id: int, db: Session = Depends(get_db)):
+    user = db.query(DBUser).filter(DBUser.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
