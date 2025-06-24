@@ -21,6 +21,7 @@ origins = [
     "http://localhost:5173",
     "https://washlinnk.com",
     "https://washlink.et",
+    "https://admin.washlinnk.com",    
 ]
 
 # CORS middleware setup
