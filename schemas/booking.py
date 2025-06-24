@@ -6,6 +6,7 @@ class ServiceTypeEnum(str, Enum):
     BY_HAND = "By Hand Wash"
     MACHINE = "Machine Wash"
     PREMIUM = "Premium Laundry Service"
+    MACHINE_WASH = 'Machine Wash' 
 
 class BookingItem(BaseModel):
     product_id: int
