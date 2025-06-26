@@ -8,7 +8,7 @@ from database import engine, Base, SessionLocal
 from routes import service_provider, users_routes, booking
 from pprint import pprint
 from dotenv import load_dotenv
-from controllers import item_controller as item_router
+from controllers import item_controller 
 
 load_dotenv()
 
@@ -39,7 +39,7 @@ app.add_middleware(
 app.include_router(service_provider.router)
 app.include_router(users_routes.router)
 app.include_router(booking.router)
-app.include_router(item_router, prefix="/api", tags=["Item Price"])
+app.include_router(item_controller.router, prefix="/api", tags=["Item Price"])
 
 
 # Startup event to verify DB connection
