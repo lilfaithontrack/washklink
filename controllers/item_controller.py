@@ -1,15 +1,14 @@
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
 from typing import List
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy import Column, Integer, Float, Text
-from sqlalchemy.orm import declarative_base, Session
+from sqlalchemy.orm import Session, declarative_base
 
-Base = declarative_base()
+from database import Base, get_db  # your existing database.py with Base and get_db session dependency
+
 router = APIRouter()
 
-# ----------------------
-# SQLAlchemy Model
-# ----------------------
+# SQLAlchemy model
 class ItemPrice(Base):
     __tablename__ = "tbl_item_price_with_catagory"
 
@@ -21,9 +20,7 @@ class ItemPrice(Base):
     discount = Column(Float, nullable=False)
     out_of_stock = Column(Integer, nullable=False)
 
-# ----------------------
-# Pydantic Schema
-# ----------------------
+# Pydantic schema
 class ItemPriceSchema(BaseModel):
     id: int
     catagory_id: int
@@ -36,11 +33,9 @@ class ItemPriceSchema(BaseModel):
     class Config:
         orm_mode = True
 
-# ----------------------
 # Controller + Route
-# ----------------------
 @router.get("/items", response_model=List[ItemPriceSchema])
-def get_all_items(db: Session):
+def get_all_items(db: Session = Depends(get_db)):
     items = db.query(ItemPrice).all()
     if not items:
         raise HTTPException(status_code=404, detail="No items found")
