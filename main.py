@@ -8,6 +8,7 @@ from database import engine, Base, SessionLocal
 from routes import service_provider, users_routes, booking
 from pprint import pprint
 from dotenv import load_dotenv
+from item_controller import router as item_router
 
 load_dotenv()
 
