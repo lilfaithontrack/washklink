@@ -39,7 +39,17 @@ class NotificationService:
 
     async def send_order_confirmation(self, phone_number: str, order_id: int):
         """Send order confirmation SMS"""
-        message = f"Your laundry order #{order_id} has been confirmed. We'll notify you when it's ready for pickup."
+        message = f"Your laundry order #{order_id} has been confirmed. We'll notify you when it's assigned to a service provider."
+        return await self.send_sms(phone_number, message)
+
+    async def send_order_assignment_to_provider(self, phone_number: str, order_id: int):
+        """Send order assignment notification to provider"""
+        message = f"New order #{order_id} has been assigned to you. Please check your dashboard to accept or reject."
+        return await self.send_sms(phone_number, message)
+
+    async def send_order_accepted(self, phone_number: str, order_id: int, provider_name: str):
+        """Send order acceptance notification to customer"""
+        message = f"Great news! Your order #{order_id} has been accepted by {provider_name}. We'll update you on the progress."
         return await self.send_sms(phone_number, message)
 
     async def send_order_ready(self, phone_number: str, order_id: int):
@@ -49,7 +59,29 @@ class NotificationService:
 
     async def send_driver_assigned(self, phone_number: str, order_id: int, driver_name: str):
         """Send driver assignment notification"""
-        message = f"Driver {driver_name} has been assigned to your order #{order_id}. They will contact you shortly."
+        message = f"Driver {driver_name} has been assigned to your order #{order_id}. They will contact you shortly for delivery."
         return await self.send_sms(phone_number, message)
+
+    async def send_order_out_for_delivery(self, phone_number: str, order_id: int):
+        """Send out for delivery notification"""
+        message = f"Your order #{order_id} is out for delivery. You should receive it within the estimated time."
+        return await self.send_sms(phone_number, message)
+
+    async def send_order_delivered(self, phone_number: str, order_id: int):
+        """Send order delivered notification"""
+        message = f"Your order #{order_id} has been delivered successfully. Thank you for using our service!"
+        return await self.send_sms(phone_number, message)
+
+    async def send_order_cancelled(self, phone_number: str, order_id: int, reason: str = ""):
+        """Send order cancellation notification"""
+        message = f"Your order #{order_id} has been cancelled. {reason}. Contact support if you have questions."
+        return await self.send_sms(phone_number, message)
+
+    async def send_status_update(self, phone_number: str, order_id: int, status: str, message: str = ""):
+        """Send generic status update"""
+        base_message = f"Order #{order_id} status update: {status}."
+        if message:
+            base_message += f" {message}"
+        return await self.send_sms(phone_number, base_message)
 
 notification_service = NotificationService()
