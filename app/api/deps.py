@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.core.database import SessionLocal
 from app.core.security import verify_token
 from app.crud.user import user as user_crud
-from app.db.models.user import DBUser
+from app.db.models.user import DBUser, UserRole
 
 security = HTTPBearer()
 
@@ -57,4 +57,32 @@ def get_current_active_user(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Inactive user"
         )
+    return current_user
+
+def require_role(required_role: UserRole):
+    """Dependency factory for role-based access control"""
+    def role_checker(current_user: DBUser = Depends(get_current_active_user)) -> DBUser:
+        if required_role == UserRole.ADMIN and not current_user.is_admin:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Admin access required"
+            )
+        elif required_role == UserRole.MANAGER and not current_user.has_admin_access:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Manager or Admin access required"
+            )
+        return current_user
+    return role_checker
+
+def get_admin_user(current_user: DBUser = Depends(require_role(UserRole.ADMIN))) -> DBUser:
+    """Get current user with admin role"""
+    return current_user
+
+def get_manager_user(current_user: DBUser = Depends(require_role(UserRole.MANAGER))) -> DBUser:
+    """Get current user with manager or admin role"""
+    return current_user
+
+def get_user_or_higher(current_user: DBUser = Depends(get_current_active_user)) -> DBUser:
+    """Get any authenticated user (USER, MANAGER, or ADMIN)"""
     return current_user

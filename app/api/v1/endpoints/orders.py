@@ -1,8 +1,9 @@
-from typing import List
+from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from app.api.deps import get_db, get_current_active_user
+from app.api.deps import get_db, get_current_active_user, get_manager_user
 from app.schemas.order import BookingCreate, BookingOut, OrderStatusUpdate, OrderStatus
+from app.schemas.user import UserRole
 from app.services.order_service import (
     create_booking_with_items, 
     get_all_bookings, 
@@ -24,8 +25,13 @@ async def create_booking(
     current_user: DBUser = Depends(get_current_active_user)
 ):
     """Create a new booking with automatic provider assignment"""
-    # Ensure the booking is for the current user
-    booking.user_id = current_user.id
+    # Ensure the booking is for the current user (regular users can only create orders for themselves)
+    if current_user.role == UserRole.USER:
+        booking.user_id = current_user.id
+    elif not booking.user_id:
+        # If admin/manager doesn't specify user_id, use their own
+        booking.user_id = current_user.id
+    
     return await create_booking_with_items(db, booking)
 
 @router.get("/", response_model=List[BookingOut])
@@ -34,19 +40,23 @@ def get_bookings(
     current_user: DBUser = Depends(get_current_active_user),
     status: Optional[OrderStatus] = Query(None, description="Filter by order status"),
     provider_id: Optional[int] = Query(None, description="Filter by provider ID"),
-    user_id: Optional[int] = Query(None, description="Filter by user ID (admin only)")
+    user_id: Optional[int] = Query(None, description="Filter by user ID")
 ):
     """Get bookings with optional filters"""
+    # Role-based access control
+    if current_user.role == UserRole.USER:
+        # Regular users can only see their own orders
+        return get_orders_by_user(db, current_user.id)
+    
+    # Managers and Admins can see all orders with filters
     if status:
         return get_orders_by_status(db, status)
     elif provider_id:
         return get_orders_by_provider(db, provider_id)
     elif user_id:
-        # Only allow admins to filter by user_id
         return get_orders_by_user(db, user_id)
     else:
-        # Regular users see only their orders
-        return get_orders_by_user(db, current_user.id)
+        return get_all_bookings(db)
 
 @router.get("/my-orders", response_model=List[BookingOut])
 def get_my_orders(
@@ -66,8 +76,7 @@ def get_booking(
     booking = get_booking_by_id(db, booking_id)
     
     # Check if user has permission to view this booking
-    if booking.user_id != current_user.id:
-        # Add admin check here if needed
+    if current_user.role == UserRole.USER and booking.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not authorized to view this booking")
     
     return booking
@@ -79,8 +88,14 @@ async def update_booking_status(
     db: Session = Depends(get_db),
     current_user: DBUser = Depends(get_current_active_user)
 ):
-    """Update booking status (for providers/admins)"""
-    # Add authorization logic here based on user role
+    """Update booking status (for managers/admins and service providers)"""
+    # Only managers/admins can update order status
+    if current_user.role == UserRole.USER:
+        raise HTTPException(
+            status_code=403, 
+            detail="Only managers and admins can update order status"
+        )
+    
     return await update_order_status(db, booking_id, status_update.status, status_update.notes)
 
 @router.post("/{booking_id}/assign-provider")
@@ -88,9 +103,9 @@ async def manually_assign_provider(
     booking_id: int,
     provider_id: int,
     db: Session = Depends(get_db),
-    current_user: DBUser = Depends(get_current_active_user)
+    current_user: DBUser = Depends(get_manager_user)  # Manager or Admin only
 ):
-    """Manually assign order to a specific provider (admin only)"""
+    """Manually assign order to a specific provider (Manager/Admin only)"""
     provider = await assignment_service.assign_order_to_provider(
         db, booking_id, provider_id
     )
@@ -103,9 +118,9 @@ async def manually_assign_provider(
 async def assign_driver_to_order(
     booking_id: int,
     db: Session = Depends(get_db),
-    current_user: DBUser = Depends(get_current_active_user)
+    current_user: DBUser = Depends(get_manager_user)  # Manager or Admin only
 ):
-    """Assign driver for delivery (for providers/admins)"""
+    """Assign driver for delivery (Manager/Admin only)"""
     driver = await assignment_service.assign_driver_for_delivery(db, booking_id)
     if not driver:
         raise HTTPException(status_code=400, detail="Could not assign driver to order")
@@ -116,16 +131,34 @@ async def assign_driver_to_order(
 def get_provider_orders(
     provider_id: int,
     db: Session = Depends(get_db),
-    current_user: DBUser = Depends(get_current_active_user)
+    current_user: DBUser = Depends(get_manager_user)  # Manager or Admin only
 ):
-    """Get all orders for a specific provider"""
+    """Get all orders for a specific provider (Manager/Admin only)"""
     return get_orders_by_provider(db, provider_id)
 
 @router.get("/status/{status}", response_model=List[BookingOut])
 def get_orders_by_status_endpoint(
     status: OrderStatus,
     db: Session = Depends(get_db),
-    current_user: DBUser = Depends(get_current_active_user)
+    current_user: DBUser = Depends(get_manager_user)  # Manager or Admin only
 ):
-    """Get all orders with specific status"""
+    """Get all orders with specific status (Manager/Admin only)"""
     return get_orders_by_status(db, status)
+
+@router.get("/stats/summary")
+def get_order_statistics(
+    db: Session = Depends(get_db),
+    current_user: DBUser = Depends(get_manager_user)  # Manager or Admin only
+):
+    """Get order statistics (Manager/Admin only)"""
+    all_orders = get_all_bookings(db)
+    
+    stats = {
+        "total_orders": len(all_orders),
+        "pending_orders": len([o for o in all_orders if o.status == OrderStatus.PENDING]),
+        "in_progress_orders": len([o for o in all_orders if o.status == OrderStatus.IN_PROGRESS]),
+        "completed_orders": len([o for o in all_orders if o.status == OrderStatus.COMPLETED]),
+        "cancelled_orders": len([o for o in all_orders if o.status == OrderStatus.CANCELLED])
+    }
+    
+    return stats

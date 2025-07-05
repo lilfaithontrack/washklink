@@ -3,8 +3,9 @@ import requests
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 from app.core.config import get_settings
+from app.core.security import verify_password
 from app.crud.user import user as user_crud
-from app.schemas.user import UserCreate, UserVerify
+from app.schemas.user import UserCreate, UserVerify, AdminUserLogin, UserRole
 from app.db.models.user import DBUser
 import logging
 
@@ -12,6 +13,7 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 def send_otp(mobile: str) -> dict:
+    """Send OTP to phone number using AfroMessage API"""
     if not mobile:
         return {
             "ResponseCode": "401",
@@ -76,6 +78,7 @@ def send_otp(mobile: str) -> dict:
         }
 
 def verify_otp(to: str, code: str) -> bool:
+    """Verify OTP using AfroMessage API"""
     base_url = 'https://api.afromessage.com/api/verify'
     headers = {'Authorization': f'Bearer {settings.AFRO_MESSAGE_API_KEY}'}
     url = f'{base_url}?to={to}&code={code}'
@@ -97,6 +100,7 @@ def verify_otp(to: str, code: str) -> bool:
         return False
 
 def authenticate_user(db: Session, user_verify: UserVerify) -> DBUser:
+    """Authenticate regular user with OTP"""
     # Step 1: Verify OTP
     if not verify_otp(user_verify.phone_number, user_verify.otp_code):
         raise HTTPException(
@@ -113,19 +117,42 @@ def authenticate_user(db: Session, user_verify: UserVerify) -> DBUser:
             phone_number=user_verify.phone_number
         )
         db_user = user_crud.create_user(db, user_in=user_create)
-        if user_verify.email:
-            db_user.email = user_verify.email
-            db.commit()
     else:
         # Update existing user if needed
-        updated = False
         if user_verify.full_name != db_user.full_name:
             db_user.full_name = user_verify.full_name
-            updated = True
-        if user_verify.email and user_verify.email != db_user.email:
-            db_user.email = user_verify.email
-            updated = True
-        if updated:
             db.commit()
 
+    # Ensure user has USER role
+    if db_user.role != UserRole.USER:
+        db_user.role = UserRole.USER
+        db.commit()
+
+    return db_user
+
+def authenticate_admin_user(db: Session, admin_login: AdminUserLogin) -> DBUser:
+    """Authenticate admin/manager user with email and password"""
+    # Find user by email
+    db_user = user_crud.get_by_email(db, email=admin_login.email)
+    
+    if not db_user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email or password"
+        )
+    
+    # Check if user is admin or manager
+    if db_user.role not in [UserRole.ADMIN, UserRole.MANAGER]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied. Admin or Manager role required."
+        )
+    
+    # Verify password (admin/manager users should have password set)
+    if not db_user.password or not verify_password(admin_login.password, db_user.password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email or password"
+        )
+    
     return db_user
