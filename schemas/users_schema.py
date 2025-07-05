@@ -27,7 +27,7 @@ class UserUpdate(BaseModel):
     phone_number: PhoneNumberStr
     otp_code: str
 
-# Auth response
+# Auth response (simplified for legacy compatibility)
 class UserResponse(BaseModel):
     id: int
     full_name: str
@@ -36,4 +36,6 @@ class UserResponse(BaseModel):
     is_active: bool
 
     class Config:
+        from_attributes = True
+        # Also support legacy orm_mode
         orm_mode = True

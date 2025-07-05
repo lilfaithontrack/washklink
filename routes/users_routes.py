@@ -17,12 +17,17 @@ def get_db():
     finally:
         db.close()
 
+# Legacy endpoints for backward compatibility
 @router.post("/auth/request-otp")
-def request_otp(user: UserCreate):
+def request_otp_legacy(user: UserCreate):
+    """Legacy OTP request endpoint - redirects to new API"""
     response = send_afro_otp(user.phone_number)
     if response.get("ResponseCode") != "200":
         raise HTTPException(status_code=500, detail=response.get("ResponseMsg", "Failed to send OTP"))
-    return {"message": "OTP sent successfully"}
+    return {
+        "message": "OTP sent successfully", 
+        "note": "This is a legacy endpoint. Please use /api/v1/auth/request-otp for new implementations."
+    }
 
 class UserVerify(BaseModel):
     phone_number: str
@@ -31,7 +36,8 @@ class UserVerify(BaseModel):
     email: EmailStr | None = None
 
 @router.post("/auth/login", response_model=UserResponse)
-def login(user: UserVerify, db: Session = Depends(get_db)):
+def login_legacy(user: UserVerify, db: Session = Depends(get_db)):
+    """Legacy login endpoint - basic functionality maintained"""
     # Step 1: Verify OTP using AfroMessage API
     if not verify_otp(user.phone_number, user.otp_code):
         raise HTTPException(
@@ -43,10 +49,13 @@ def login(user: UserVerify, db: Session = Depends(get_db)):
     db_user = db.query(DBUser).filter(DBUser.phone_number == user.phone_number).first()
 
     if not db_user:
+        # Create as regular user (USER role)
+        from app.db.models.user import UserRole
         db_user = DBUser(
             full_name=user.full_name,
             phone_number=user.phone_number,
-            email=user.email,
+            email=None,  # Regular users don't have email
+            role=UserRole.USER,
             is_active=True,
         )
         db.add(db_user)
@@ -57,9 +66,7 @@ def login(user: UserVerify, db: Session = Depends(get_db)):
         if user.full_name != db_user.full_name:
             db_user.full_name = user.full_name
             updated = True
-        if user.email and user.email != db_user.email:
-            db_user.email = user.email
-            updated = True
+        # Don't update email for regular users
         if updated:
             db.commit()
 
@@ -73,14 +80,30 @@ def login(user: UserVerify, db: Session = Depends(get_db)):
     )
 
 @router.get("/users", response_model=List[UserResponse])
-def get_all_users(db: Session = Depends(get_db)):
+def get_all_users_legacy(db: Session = Depends(get_db)):
+    """Legacy endpoint - basic functionality maintained"""
     users = db.query(DBUser).all()
-    return users
-
+    return [
+        UserResponse(
+            id=user.id,
+            full_name=user.full_name,
+            phone_number=user.phone_number,
+            email=user.email,
+            is_active=user.is_active
+        ) for user in users
+    ]
 
 @router.get("/users/{user_id}", response_model=UserResponse)
-def get_user_by_id(user_id: int, db: Session = Depends(get_db)):
+def get_user_by_id_legacy(user_id: int, db: Session = Depends(get_db)):
+    """Legacy endpoint - basic functionality maintained"""
     user = db.query(DBUser).filter(DBUser.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    return user
+    
+    return UserResponse(
+        id=user.id,
+        full_name=user.full_name,
+        phone_number=user.phone_number,
+        email=user.email,
+        is_active=user.is_active
+    )

@@ -1,6 +1,6 @@
 from pydantic_settings import BaseSettings
 from functools import lru_cache
-from typing import Optional
+from typing import Optional, List
 
 class Settings(BaseSettings):
     # Database
@@ -25,15 +25,27 @@ class Settings(BaseSettings):
     # JWT Settings
     SECRET_KEY: str = "your-secret-key-change-in-production"
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440  # 24 hours for better UX
     
     # CORS Settings
-    ALLOWED_ORIGINS: list = [
+    ALLOWED_ORIGINS: List[str] = [
+        "http://localhost:3000",
         "http://localhost:5173",
         "https://washlinnk.com",
         "https://washlink.et",
-        "https://admin.washlinnk.com"
+        "https://admin.washlinnk.com",
+        "https://app.washlink.et"
     ]
+    
+    # App Settings
+    APP_NAME: str = "Laundry App API"
+    APP_VERSION: str = "2.0.0"
+    DEBUG: bool = False
+    
+    # Default Admin Settings (for initial setup)
+    DEFAULT_ADMIN_EMAIL: str = "admin@washlink.com"
+    DEFAULT_ADMIN_PHONE: str = "+251911000000"
+    DEFAULT_ADMIN_PASSWORD: str = "admin123"  # Change in production!
 
     class Config:
         env_file = ".env"
