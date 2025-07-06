@@ -1,1 +1,0 @@
-# FastAPI Laundry App Backend
