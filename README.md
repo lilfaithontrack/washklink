@@ -241,6 +241,3 @@ On first startup, a default admin account is created:
 4. Add tests if applicable
 5. Submit a pull request
 
-## 📄 License
-
-This project is licensed under the MIT License.
