@@ -18,6 +18,13 @@ class Settings(BaseSettings):
     AFRO_MESSAGE_LEN: int = 6
     AFRO_MESSAGE_T: int = 0
 
+    # Payment Gateway Settings
+    CHAPA_SECRET_KEY: Optional[str] = "your-chapa-secret-key"
+    CHAPA_PUBLIC_KEY: Optional[str] = "your-chapa-public-key"
+    TELEBIRR_APP_ID: Optional[str] = "your-telebirr-app-id"
+    TELEBIRR_APP_KEY: Optional[str] = "your-telebirr-app-key"
+    TELEBIRR_BASE_URL: Optional[str] = "https://196.188.120.3:38443/apiaccess"
+
     # Google Auth (Optional)
     GOOGLE_CLIENT_ID: Optional[str] = None
     GOOGLE_CLIENT_SECRET: Optional[str] = None

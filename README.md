@@ -1,6 +1,6 @@
 # Laundry App Backend
 
-A comprehensive FastAPI-based backend for a laundry service management application with role-based access control, live tracking, and automated assignment.
+A comprehensive FastAPI-based backend for a laundry service management application with role-based access control, live tracking, automated assignment, and integrated payment processing.
 
 ## 🚀 Features
 
@@ -21,6 +21,13 @@ A comprehensive FastAPI-based backend for a laundry service management applicati
 - **Status Tracking**: Real-time order status updates
 - **Payment Integration**: Chapa and Telebirr payment gateways
 
+### 💳 **Payment Processing**
+- **Multiple Payment Gateways**: Chapa and Telebirr integration
+- **Secure Transactions**: End-to-end payment security
+- **Payment Verification**: Automatic payment status verification
+- **Webhook Support**: Real-time payment status updates
+- **Cash on Delivery**: Traditional payment option
+
 ### 🚚 **Live Tracking & Delivery**
 - **Real-Time Driver Tracking**: WebSocket-based live location updates
 - **Delivery Management**: Driver assignment and route optimization
@@ -35,43 +42,35 @@ A comprehensive FastAPI-based backend for a laundry service management applicati
 - **Real-Time Analytics**: Live tracking dashboard
 - **User Management**: Role-based user administration
 - **Order Monitoring**: Complete order lifecycle management
+- **Payment Analytics**: Transaction monitoring and reporting
 
 ## 🏗️ Project Structure
 
 ```
 laundry_app_backend/
-├── app/
-│   ├── core/             # Core configurations and utilities
-│   │   ├── config.py     # Application settings
-│   │   ├── database.py   # Database connection
-│   │   ├── security.py   # JWT & password hashing
-│   │   └── exceptions.py # Custom exceptions
-│   ├── db/               # Database models and migrations
-│   │   ├── models/       # SQLAlchemy ORM models
-│   │   │   ├── user.py   # User model with roles
-│   │   │   ├── order.py  # Order/booking models
-│   │   │   ├── driver.py # Driver management
-│   │   │   └── ...
-│   ├── schemas/          # Pydantic models for validation
-│   ├── crud/             # Database operations
-│   ├── services/         # Business logic
-│   │   ├── auth_service.py      # Authentication logic
-│   │   ├── order_service.py     # Order processing
-│   │   ├── tracking_service.py  # Live tracking
-│   │   ├── assignment_service.py # Auto-assignment
-│   │   └── payment_gateways/    # Payment integrations
-│   └── api/              # FastAPI endpoints
-│       └── v1/           # API version 1
-│           ├── endpoints/
-│           │   ├── auth.py      # Authentication endpoints
-│           │   ├── users.py     # User management
-│           │   ├── orders.py    # Order management
-│           │   ├── tracking.py  # Live tracking
-│           │   └── ...
-├── controllers/          # Legacy controllers (backward compatibility)
-├── models/              # Legacy models (backward compatibility)
-├── routes/              # Legacy routes (backward compatibility)
-└── main.py              # Legacy main file (backward compatibility)
+├── core/                 # Core configurations and utilities
+│   ├── config.py         # Application settings with payment configs
+│   ├── security.py       # JWT & password hashing
+│   └── exceptions.py     # Custom exceptions
+├── db/                   # Database models and migrations
+│   └── models/           # SQLAlchemy ORM models
+│       ├── payment.py    # Payment model
+│       └── ...
+├── schemas/              # Pydantic models for validation
+│   ├── payment.py        # Payment schemas
+│   └── ...
+├── services/             # Business logic
+│   ├── payment_service.py           # Payment processing logic
+│   ├── payment_gateways/            # Payment gateway integrations
+│   │   ├── base_payment.py          # Abstract payment gateway
+│   │   ├── chapa.py                 # Chapa payment gateway
+│   │   └── telebirr.py              # Telebirr payment gateway
+│   └── ...
+└── api/                  # FastAPI endpoints
+    └── v1/               # API version 1
+        ├── endpoints/
+        │   ├── payments.py          # Payment endpoints
+        │   └── ...
 ```
 
 ## 🔧 Setup Instructions
@@ -81,6 +80,8 @@ laundry_app_backend/
 - Python 3.11+
 - PostgreSQL database
 - AfroMessage API credentials (for SMS)
+- Chapa API credentials (for Chapa payments)
+- Telebirr API credentials (for Telebirr payments)
 
 ### Installation
 
@@ -104,30 +105,79 @@ pip install -r requirements.txt
 4. **Create a `.env` file:**
 ```env
 DATABASE_URL=postgresql://username:password@localhost/database_name
+
+# SMS API
 AFRO_MESSAGE_API_KEY=your_afromessage_api_key
 AFRO_MESSAGE_SENDER_NAME=your_sender_name
 AFRO_MESSAGE_IDENTIFIER_ID=your_identifier_id
+
+# Payment Gateways
+CHAPA_SECRET_KEY=your_chapa_secret_key
+CHAPA_PUBLIC_KEY=your_chapa_public_key
+TELEBIRR_APP_ID=your_telebirr_app_id
+TELEBIRR_APP_KEY=your_telebirr_app_key
+
+# Security
 SECRET_KEY=your_jwt_secret_key
 ```
 
 5. **Run the application:**
 ```bash
-uvicorn app.main:app --reload
+uvicorn main:app --reload
 ```
 
 The API will be available at `http://localhost:8000`
 
-### 🐳 Docker Setup
+## 💳 Payment Integration
 
-1. **Build the Docker image:**
+### **Supported Payment Methods**
+
+1. **Chapa Payment Gateway**
+   - Credit/Debit Cards
+   - Mobile Money
+   - Bank Transfers
+   - Ethiopian Birr (ETB)
+
+2. **Telebirr Mobile Wallet**
+   - Telebirr mobile payments
+   - Ethiopian Birr (ETB)
+
+3. **Cash on Delivery**
+   - Traditional payment method
+   - Pay when order is delivered
+
+### **Payment Flow**
+
+1. **Initiate Payment**
 ```bash
-docker build -t laundry-app-backend .
+POST /api/v1/payments/initiate
+{
+    "order_id": 123,
+    "amount": 150.00,
+    "payment_method": "chapa",
+    "return_url": "https://yourapp.com/payment-success"
+}
 ```
 
-2. **Run the container:**
+2. **Redirect to Payment Gateway**
+- User is redirected to Chapa/Telebirr payment page
+- Complete payment on gateway
+
+3. **Payment Verification**
 ```bash
-docker run -p 8000:8000 --env-file .env laundry-app-backend
+GET /api/v1/payments/verify/{transaction_id}?payment_method=chapa
 ```
+
+4. **Webhook Callbacks**
+- Automatic payment status updates
+- Order status progression
+
+### **Payment Security**
+
+- **Secure API Keys**: Environment-based configuration
+- **Transaction Verification**: Double verification of payments
+- **Webhook Validation**: Secure callback handling
+- **PCI Compliance**: Following payment industry standards
 
 ## 📚 API Documentation
 
@@ -135,103 +185,18 @@ Once running, access:
 - **Swagger UI**: `http://localhost:8000/docs`
 - **ReDoc**: `http://localhost:8000/redoc`
 
-## 🔐 Authentication Guide
+## 💳 Payment API Endpoints
 
-### **Regular Users (USER Role)**
+### **Payment Management**
+- `POST /api/v1/payments/initiate` - Initiate payment
+- `GET /api/v1/payments/verify/{transaction_id}` - Verify payment
+- `GET /api/v1/payments/order/{order_id}` - Get order payment info
+- `GET /api/v1/payments/my-payments` - Get user payment history
+- `GET /api/v1/payments/methods` - Get available payment methods
 
-**Request OTP:**
-```bash
-POST /api/v1/auth/request-otp
-{
-    "phone_number": "+251912345678",
-    "full_name": "John Doe"
-}
-```
-
-**Login with OTP:**
-```bash
-POST /api/v1/auth/login
-{
-    "phone_number": "+251912345678",
-    "full_name": "John Doe",
-    "otp_code": "123456"
-}
-```
-
-### **Admin/Manager Users**
-
-**Login:**
-```bash
-POST /api/v1/auth/admin/login
-{
-    "email": "admin@washlink.com",
-    "password": "your_password"
-}
-```
-
-**Create Admin Account:**
-```bash
-POST /api/v1/auth/admin/create
-{
-    "full_name": "Admin User",
-    "phone_number": "+251911111111",
-    "email": "admin@washlink.com",
-    "role": "admin",
-    "password": "secure_password"
-}
-```
-
-## 🛡️ Role-Based Access Control
-
-### **USER Role**
-- Create and view own orders
-- Update own profile
-- Track own deliveries
-
-### **MANAGER Role**
-- All USER permissions
-- View all orders and users
-- Update order statuses
-- Assign drivers and providers
-
-### **ADMIN Role**
-- All MANAGER permissions
-- Create/delete users
-- Manage user roles
-- System administration
-
-## 📱 API Endpoints
-
-### **Authentication**
-- `POST /api/v1/auth/request-otp` - Request OTP for regular users
-- `POST /api/v1/auth/login` - Login with OTP
-- `POST /api/v1/auth/admin/login` - Admin/Manager login
-- `POST /api/v1/auth/admin/create` - Create admin accounts
-- `GET /api/v1/auth/me` - Get current user info
-
-### **Users**
-- `GET /api/v1/users/` - Get all users (Manager/Admin)
-- `GET /api/v1/users/me` - Get current user profile
-- `PUT /api/v1/users/{id}` - Update user
-- `PUT /api/v1/users/{id}/role` - Update user role (Admin)
-
-### **Orders**
-- `POST /api/v1/orders/` - Create new order
-- `GET /api/v1/orders/` - Get orders (role-based filtering)
-- `GET /api/v1/orders/my-orders` - Get current user's orders
-- `PUT /api/v1/orders/{id}/status` - Update order status
-
-### **Live Tracking**
-- `WebSocket /api/v1/tracking/ws/driver/{id}` - Driver tracking
-- `WebSocket /api/v1/tracking/ws/customer/{id}` - Customer tracking
-- `WebSocket /api/v1/tracking/ws/admin` - Admin dashboard
-- `GET /api/v1/tracking/order/{id}/tracking` - Get order tracking
-
-### **Legacy Endpoints** (Backward Compatibility)
-- `/auth/request-otp` - Legacy OTP request
-- `/auth/login` - Legacy login
-- `/users/` - Legacy user endpoints
-- `/bookings/` - Legacy booking endpoints
+### **Payment Callbacks**
+- `POST /api/v1/payments/chapa/callback` - Chapa webhook
+- `POST /api/v1/payments/telebirr/callback` - Telebirr webhook
 
 ## 🌍 Environment Variables
 
@@ -239,10 +204,25 @@ POST /api/v1/auth/admin/create
 |----------|-------------|----------|
 | `DATABASE_URL` | PostgreSQL connection string | Yes |
 | `AFRO_MESSAGE_API_KEY` | AfroMessage API key for SMS | Yes |
-| `AFRO_MESSAGE_SENDER_NAME` | SMS sender name | Yes |
-| `AFRO_MESSAGE_IDENTIFIER_ID` | AfroMessage identifier | Yes |
+| `CHAPA_SECRET_KEY` | Chapa payment gateway secret key | Yes |
+| `CHAPA_PUBLIC_KEY` | Chapa payment gateway public key | Yes |
+| `TELEBIRR_APP_ID` | Telebirr application ID | Yes |
+| `TELEBIRR_APP_KEY` | Telebirr application key | Yes |
 | `SECRET_KEY` | JWT secret key | Yes |
-| `ACCESS_TOKEN_EXPIRE_MINUTES` | Token expiration time | No (default: 1440) |
+
+## 🔄 Payment Gateway Setup
+
+### **Chapa Setup**
+1. Register at [Chapa.co](https://chapa.co)
+2. Get your API keys from dashboard
+3. Add keys to environment variables
+4. Configure webhook URLs
+
+### **Telebirr Setup**
+1. Contact Telebirr for merchant account
+2. Get application credentials
+3. Add credentials to environment variables
+4. Configure callback URLs
 
 ## 🚀 Default Admin Account
 
@@ -253,10 +233,6 @@ On first startup, a default admin account is created:
 
 ⚠️ **Important**: Change the default password immediately in production!
 
-## 🔄 Migration from Legacy
-
-The application maintains full backward compatibility with existing endpoints while providing new role-based functionality. Existing clients can continue using legacy endpoints while new implementations should use the `/api/v1/` endpoints.
-
 ## 🤝 Contributing
 
 1. Fork the repository
@@ -265,3 +241,6 @@ The application maintains full backward compatibility with existing endpoints wh
 4. Add tests if applicable
 5. Submit a pull request
 
+## 📄 License
+
+This project is licensed under the MIT License.
