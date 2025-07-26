@@ -1,7 +1,7 @@
 import math
 from typing import List, Tuple, Optional
 from sqlalchemy.orm import Session
-from models.service_provider import ServiceProvider
+from db.models.service_provider import ServiceProvider
 from db.models.driver import Driver, DriverStatus
 from models.booking import Booking
 

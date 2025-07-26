@@ -2,7 +2,7 @@ from typing import Optional, List
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 from models.booking import Booking
-from models.service_provider import ServiceProvider
+from db.models.service_provider import ServiceProvider
 from db.models.driver import Driver, DriverStatus
 from services.location_service import location_service
 import logging

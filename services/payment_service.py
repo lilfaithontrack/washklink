@@ -16,11 +16,11 @@ class PaymentService:
     def __init__(self):
         # Initialize payment gateways with settings
         self.chapa_gateway = ChapaPaymentGateway(
-            secret_key=getattr(settings, 'CHAPA_SECRET_KEY', 'your-chapa-secret-key')
+            secret_key=getattr(settings, 'CHAPA_SECRET_KEY' )
         )
         self.telebirr_gateway = TelebirrPaymentGateway(
-            app_id=getattr(settings, 'TELEBIRR_APP_ID', 'your-telebirr-app-id'),
-            app_key=getattr(settings, 'TELEBIRR_APP_KEY', 'your-telebirr-app-key')
+            app_id=getattr(settings, 'TELEBIRR_APP_ID', ''),
+            app_key=getattr(settings, 'TELEBIRR_APP_KEY', '')
         )
 
     async def initiate_payment(
@@ -69,7 +69,7 @@ class PaymentService:
             "email": user.email or f"user{user.id}@washlink.com",
             "first_name": user.full_name.split()[0] if user.full_name else "Customer",
             "last_name": " ".join(user.full_name.split()[1:]) if len(user.full_name.split()) > 1 else "Name",
-            "phone_number": user.phone_number
+            "phone_number": user.phone
         }
 
         try:
@@ -230,6 +230,10 @@ class PaymentService:
     def get_user_payments(self, db: Session, user_id: int) -> list[Payment]:
         """Get all payments for a user"""
         return db.query(Payment).filter(Payment.user_id == user_id).all()
+
+    def get_all_payments(self, db: Session) -> list[Payment]:
+        """Get all payments (admin only)"""
+        return db.query(Payment).all()
 
 # Global instance
 payment_service = PaymentService()

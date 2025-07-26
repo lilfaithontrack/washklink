@@ -3,10 +3,9 @@ from typing import List, Optional
 from enum import Enum
 
 class ServiceTypeEnum(str, Enum):
-    BY_HAND = "By Hand Wash"
-    MACHINE = "Machine Wash"
-    PREMIUM = "Premium Laundry Service"
-    MACHINE_WASH = "Machine Wash"  # This is a duplicate of MACHINE
+    BY_HAND = "BY_HAND"
+    MACHINE_WASH = "MACHINE_WASH"
+    PREMIUM = "PREMIUM"
 
 class BookingItem(BaseModel):
     product_id: int
@@ -15,7 +14,7 @@ class BookingItem(BaseModel):
     price: float
     service_type: Optional[ServiceTypeEnum] = None 
     class Config:
-        orm_mode = True  # Add this if you're returning BookingItem in response
+        from_attributes = True  # Pydantic V2: replaces orm_mode
 
 class BookingCreate(BaseModel):
     user_id: int
@@ -29,7 +28,7 @@ class BookingCreate(BaseModel):
 class BookingOut(BaseModel):
     id: int
     user_id: int
-    items: Optional[List[BookingItem]] = []
+    items: Optional[List[dict]] = []  # Changed to dict to handle JSON data
     price_tag: float
     subtotal: float
     payment_option: Optional[str]
@@ -40,4 +39,4 @@ class BookingOut(BaseModel):
     note: Optional[str]
 
     class Config:
-        orm_mode = True
+        from_attributes = True  # Pydantic V2: replaces orm_mode

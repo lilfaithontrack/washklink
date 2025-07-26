@@ -31,7 +31,7 @@ class ItemPriceSchema(BaseModel):
     out_of_stock: int
 
     class Config:
-        orm_mode = True
+        from_attributes = True  # Pydantic V2: replaces orm_mode
 
 # Controller + Route
 @router.get("/items", response_model=List[ItemPriceSchema])

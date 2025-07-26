@@ -1,153 +1,140 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
+from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
-from datetime import datetime, timedelta
+from typing import Any
 from api.deps import get_db, get_current_active_user
-from schemas.users_schema import (
-    UserCreate, UserVerify, UserResponse, UserRole
-)
-from services.auth_service import send_otp, authenticate_user, authenticate_admin_user, AdminUserLogin
-from crud.user import user as user_crud, AdminUserCreate
-from core.security import create_access_token, hash_password
-from core.config import get_settings
+from services.auth_service import authenticate_user, authenticate_admin_user
+from schemas.auth import AdminLogin
+from schemas.user import UserResponse
+from models.users import DBUser
+import logging
+import uuid
 
-router = APIRouter()
-settings = get_settings()
+import jwt
+from datetime import datetime, timedelta
+from core.config import settings
 
-class TokenResponse:
-    def __init__(self, access_token: str, token_type: str, user: UserResponse, expires_in: int):
-        self.access_token = access_token
-        self.token_type = token_type
-        self.user = user
-        self.expires_in = expires_in
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-@router.post("/request-otp")
-def request_otp(user: UserCreate):
-    """Request OTP for phone number verification (regular users only)"""
-    response = send_otp(user.phone_number)
-    if response.get("ResponseCode") != "200":
-        raise HTTPException(
-            status_code=500, 
-            detail=response.get("ResponseMsg", "Failed to send OTP")
-        )
-    return {"message": "OTP sent successfully"}
+router = APIRouter(redirect_slashes=False)
 
 @router.post("/login")
-def login(user: UserVerify, db: Session = Depends(get_db)):
-    """Login with OTP verification (regular users only)"""
-    db_user = authenticate_user(db, user)
-    
-    # Create access token
-    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": str(db_user.id), "role": db_user.role.value},
-        expires_delta=access_token_expires
-    )
-    
-    # Update last login
-    db_user.last_login = datetime.utcnow()
-    db.commit()
-    
-    user_response = UserResponse(
-        id=db_user.id,
-        full_name=db_user.full_name,
-        phone_number=db_user.phone_number,
-        email=db_user.email,
-        is_active=db_user.is_active
-    )
-    
-    return {
-        "access_token": access_token,
-        "token_type": "bearer",
-        "user": user_response,
-        "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
-    }
+def login(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: Session = Depends(get_db),
+    response: Response = None,
+) -> Any:
+    try:
+        user = authenticate_user(db, form_data.username, form_data.password)
+        if not user:
+            logger.warning(f"Failed login attempt for user: {form_data.username}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect email/phone or password",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        payload = {
+            "user_id": user.id,
+            "role": user.role,
+            "is_active": user.is_active,
+            "exp": datetime.utcnow() + timedelta(days=7)
+        }
+        token = jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+        response.set_cookie(
+            key="access_token",
+            value=token,
+            httponly=True,
+            secure=False,  # Set to True in production with HTTPS
+            samesite="lax",
+            max_age=60*60*24*7,  # 7 days
+            path="/"
+        )
+        logger.info(f"Successful login for user: {user.email}")
+        return {
+            "message": "Login successful",
+            "user": UserResponse(
+                id=user.id,
+                full_name=user.full_name,
+                phone=user.phone,
+                email=user.email,
+                role=user.role,
+                is_active=user.is_active
+            )
+        }
+    except Exception as e:
+        logger.error(f"Login error for user {form_data.username}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred during login"
+        )
 
 @router.post("/admin/login")
-def admin_login(admin_user: AdminUserLogin, db: Session = Depends(get_db)):
-    """Login for admin and manager users with email and password"""
-    db_user = authenticate_admin_user(db, admin_user)
-    
-    # Create access token
-    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": str(db_user.id), "role": db_user.role.value},
-        expires_delta=access_token_expires
-    )
-    
-    # Update last login
-    db_user.last_login = datetime.utcnow()
-    db.commit()
-    
-    user_response = UserResponse(
-        id=db_user.id,
-        full_name=db_user.full_name,
-        phone_number=db_user.phone_number,
-        email=db_user.email,
-        is_active=db_user.is_active
-    )
-    
-    return {
-        "access_token": access_token,
-        "token_type": "bearer",
-        "user": user_response,
-        "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
-    }
-
-@router.post("/admin/create")
-def create_admin_user(
-    admin_user: AdminUserCreate, 
-    db: Session = Depends(get_db)
-):
-    """Create admin or manager user (requires existing admin privileges in production)"""
-    
-    # Check for existing users
-    existing_email = user_crud.get_by_email(db, email=admin_user.email)
-    if existing_email:
-        raise HTTPException(
-            status_code=400, 
-            detail="Email already registered"
+def admin_login(admin_user: AdminLogin, db: Session = Depends(get_db), response: Response = None) -> Any:
+    try:
+        logger.info(f"Admin login attempt for: {admin_user.email}")
+        user = authenticate_admin_user(db, admin_user)
+        if not user:
+            logger.warning(f"Failed admin login attempt for: {admin_user.email}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect email or password",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        payload = {
+            "user_id": user.id,
+            "role": user.role,
+            "is_active": user.is_active,
+            "exp": datetime.utcnow() + timedelta(days=7)
+        }
+        token = jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+        response.set_cookie(
+            key="access_token",
+            value=token,
+            httponly=True,
+            secure=False,  # Set to True in production with HTTPS
+            samesite="lax",
+            max_age=60*60*24*7,  # 7 days
+            path="/"
         )
-    
-    existing_phone = user_crud.get_by_phone(db, phone_number=admin_user.phone_number)
-    if existing_phone:
-        raise HTTPException(
-            status_code=400, 
-            detail="Phone number already registered"
+        logger.info(f"Successful admin login for: {user.email}")
+        user_response = UserResponse(
+            id=user.id,
+            full_name=user.full_name,
+            phone=user.phone,
+            email=user.email,
+            role=user.role,
+            is_active=user.is_active
         )
-    
-    # Validate role
-    if admin_user.role not in [UserRole.ADMIN, UserRole.MANAGER]:
+        return {"message": "Login successful", "user": user_response}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Admin login error for {admin_user.email}: {str(e)}")
         raise HTTPException(
-            status_code=400,
-            detail="Invalid role. Only ADMIN or MANAGER roles can be created through this endpoint"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred during admin login"
         )
-    
-    # Create admin/manager user
-    hashed_password = hash_password(admin_user.password)
-    db_user = user_crud.create_admin_user(db, admin_user, hashed_password)
-    
-    return UserResponse(
-        id=db_user.id,
-        full_name=db_user.full_name,
-        phone_number=db_user.phone_number,
-        email=db_user.email,
-        is_active=db_user.is_active
-    )
 
 @router.post("/logout")
-def logout():
-    """Logout endpoint (client should discard token)"""
-    return {"message": "Successfully logged out"}
+def logout(request: Request, response: Response):
+    response.delete_cookie(
+        key="access_token",
+        path="/",
+        httponly=True,
+        secure=False,  # Set to True in production with HTTPS
+        samesite="lax"
+    )
+    return {"message": "Logged out"}
 
-@router.get("/me")
-def get_current_user_info(
-    current_user = Depends(get_current_active_user)
-):
-    """Get current user information"""
+@router.get("/me", response_model=UserResponse)
+def read_users_me(current_user: DBUser = Depends(get_current_active_user)) -> Any:
+    """Get current user profile"""
     return UserResponse(
         id=current_user.id,
         full_name=current_user.full_name,
-        phone_number=current_user.phone_number,
+        phone=current_user.phone,
         email=current_user.email,
+        role=current_user.role,
         is_active=current_user.is_active
     )

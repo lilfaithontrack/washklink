@@ -3,31 +3,33 @@ from enum import Enum
 from sqlalchemy.orm import relationship
 from database import Base
 from datetime import datetime
+from models.users import DBUser
+from db.models.service_provider import ServiceProvider
+from db.models.driver import Driver
 
 class ServiceTypeEnum(Enum):
-    BY_HAND = "By Hand Wash"
-    MACHINE = "Machine Wash"
-    PREMIUM = "Premium Laundry Service"
-    MACHINE_WASH = 'Machine Wash'
+    BY_HAND = "BY_HAND"
+    PREMIUM = "PREMIUM"
+    MACHINE_WASH = "MACHINE_WASH"
 
 class OrderStatus(Enum):
-    PENDING = "pending"
-    ASSIGNED = "assigned"
-    ACCEPTED = "accepted"
-    REJECTED = "rejected"
-    IN_PROGRESS = "in_progress"
-    READY_FOR_PICKUP = "ready_for_pickup"
-    OUT_FOR_DELIVERY = "out_for_delivery"
-    DELIVERED = "delivered"
-    COMPLETED = "completed"
-    CANCELLED = "cancelled"
+    PENDING = "PENDING"
+    ASSIGNED = "ASSIGNED"
+    ACCEPTED = "ACCEPTED"
+    REJECTED = "REJECTED"
+    IN_PROGRESS = "IN_PROGRESS"
+    READY_FOR_PICKUP = "READY_FOR_PICKUP"
+    OUT_FOR_DELIVERY = "OUT_FOR_DELIVERY"
+    DELIVERED = "DELIVERED"
+    COMPLETED = "COMPLETED"
+    CANCELLED = "CANCELLED"
 
 class Booking(Base):
     __tablename__ = "bookings"
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("new_users.id"), nullable=False)
-    service_provider_id = Column(Integer, ForeignKey("service_provider.id"), nullable=True)
+    service_provider_id = Column(Integer, ForeignKey("service_providers.id"), nullable=True)
     driver_id = Column(Integer, ForeignKey("drivers.id"), nullable=True)
     
     # Customer location
@@ -52,8 +54,8 @@ class Booking(Base):
     note = Column(Text, nullable=True)
     
     # Status and timing
-    status = Column(SQLEnum(OrderStatus), default=OrderStatus.PENDING)
-    service_type = Column(SQLEnum(ServiceTypeEnum), nullable=False, default=ServiceTypeEnum.MACHINE)
+    status = Column(String(20), default=OrderStatus.PENDING.value)
+    service_type = Column(String(50), nullable=False, default=ServiceTypeEnum.MACHINE_WASH.value)
     
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -76,6 +78,6 @@ class Booking(Base):
     priority_level = Column(Integer, default=1)  # 1=normal, 2=high, 3=urgent
     
     # Relationships
-    user = relationship("DBUser", back_populates="bookings")
-    service_provider = relationship("ServiceProvider", back_populates="orders")
-    driver = relationship("Driver", back_populates="orders")
+    user = relationship("models.users.DBUser", foreign_keys=[user_id])
+    service_provider = relationship("db.models.service_provider.ServiceProvider", foreign_keys=[service_provider_id])
+    driver = relationship("db.models.driver.Driver", foreign_keys=[driver_id])

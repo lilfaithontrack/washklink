@@ -2,67 +2,60 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from api.deps import get_db, get_current_active_user, get_manager_user
-from schemas.booking import BookingCreate, BookingOut
+from schemas.order import OrderCreate, OrderUpdate, OrderResponse
 from models.users import DBUser, UserRole
 from services.order_service import (
-    create_booking_with_items, 
-    get_all_bookings, 
-    get_booking_by_id,
+    create_order_with_items, 
+    get_all_orders, 
+    get_order_by_id,
     get_orders_by_user
 )
 from services.assignment_service import assignment_service
 
-router = APIRouter()
+router = APIRouter(redirect_slashes=False)
 
-@router.post("/", response_model=BookingOut)
-async def create_booking(
-    booking: BookingCreate,
+@router.post("/", response_model=OrderResponse)
+async def create_order(
+    order: OrderCreate,
     db: Session = Depends(get_db),
     current_user: DBUser = Depends(get_current_active_user)
 ):
-    """Create a new booking with automatic provider assignment"""
-    # Ensure the booking is for the current user (regular users can only create orders for themselves)
+    """Create a new order with automatic provider assignment"""
     if current_user.role == UserRole.USER:
-        booking.user_id = current_user.id
-    elif not booking.user_id:
-        # If admin/manager doesn't specify user_id, use their own
-        booking.user_id = current_user.id
-    
-    return await create_booking_with_items(db, booking)
+        order.user_id = current_user.id
+    elif not order.user_id:
+        order.user_id = current_user.id
+    return await create_order_with_items(db, order)
 
-@router.get("/", response_model=List[BookingOut])
-def get_bookings(
+@router.get("/", response_model=List[OrderResponse])
+def get_orders(
     db: Session = Depends(get_db),
     current_user: DBUser = Depends(get_current_active_user)
 ):
-    """Get bookings with role-based filtering"""
-    # Role-based access control
+    """Get orders with role-based filtering"""
     if current_user.role == UserRole.USER:
-        # Regular users can only see their own orders
-        return get_orders_by_user(db, current_user.id)
+        orders = get_orders_by_user(db, current_user.id)
     else:
-        # Managers and Admins can see all orders
-        return get_all_bookings(db)
+        orders = get_all_orders(db)
+    return orders
 
-@router.get("/my-orders", response_model=List[BookingOut])
+@router.get("/my-orders", response_model=List[OrderResponse])
 def get_my_orders(
     db: Session = Depends(get_db),
     current_user: DBUser = Depends(get_current_active_user)
 ):
     """Get current user's orders"""
-    return get_orders_by_user(db, current_user.id)
+    orders = get_orders_by_user(db, current_user.id)
+    return orders
 
-@router.get("/{booking_id}", response_model=BookingOut)
-def get_booking(
-    booking_id: int,
+@router.get("/{order_id}", response_model=OrderResponse)
+def get_order(
+    order_id: int,
     db: Session = Depends(get_db),
     current_user: DBUser = Depends(get_current_active_user)
 ):
-    """Get booking by ID"""
-    booking = get_booking_by_id(db, booking_id)
-    
-    # Check if user has permission to view this booking
-    if current_user.role == UserRole.USER and booking.user_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Not authorized to view this booking")
-    
-    return booking
+    """Get order by ID"""
+    order = get_order_by_id(db, order_id)
+    if current_user.role == UserRole.USER and order.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to view this order")
+    return order

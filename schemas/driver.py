@@ -1,77 +1,60 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, constr, confloat
 from typing import Optional
-from datetime import date, datetime
+from datetime import datetime
 from enum import Enum
 
 class DriverStatus(str, Enum):
     AVAILABLE = "available"
     BUSY = "busy"
     OFFLINE = "offline"
-    ON_DELIVERY = "on_delivery"
     SUSPENDED = "suspended"
 
-class VehicleType(str, Enum):
-    MOTORCYCLE = "motorcycle"
-    CAR = "car"
-    VAN = "van"
-    BICYCLE = "bicycle"
+class ApprovalStatus(str, Enum):
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
 
-class DriverCreate(BaseModel):
-    first_name: str
-    last_name: str
+class DriverBase(BaseModel):
+    first_name: constr(min_length=2, max_length=50)
+    last_name: constr(min_length=2, max_length=50)
     email: EmailStr
-    phone_number: str
-    license_number: str
-    vehicle_type: VehicleType
+    phone: constr(min_length=10, max_length=15)
+    vehicle_type: str
     vehicle_plate: str
-    vehicle_model: Optional[str] = None
-    vehicle_color: Optional[str] = None
-    service_radius: float = 15.0
-    base_latitude: Optional[float] = None
-    base_longitude: Optional[float] = None
+    base_lat: confloat(ge=-90, le=90)
+    base_lng: confloat(ge=-180, le=180)
+    service_radius: confloat(ge=1000, le=20000)  # Service radius in meters (1km to 20km)
+
+class DriverCreate(DriverBase):
+    password: str
 
 class DriverUpdate(BaseModel):
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     email: Optional[EmailStr] = None
-    phone_number: Optional[str] = None
-    vehicle_type: Optional[VehicleType] = None
+    phone: Optional[str] = None
+    vehicle_type: Optional[str] = None
     vehicle_plate: Optional[str] = None
-    vehicle_model: Optional[str] = None
-    vehicle_color: Optional[str] = None
+    base_lat: Optional[float] = None
+    base_lng: Optional[float] = None
     service_radius: Optional[float] = None
     status: Optional[DriverStatus] = None
     is_active: Optional[bool] = None
 
-class DriverResponse(BaseModel):
+class DriverApproval(BaseModel):
+    approval_status: ApprovalStatus
+    rejection_reason: Optional[str] = None
+
+class DriverResponse(DriverBase):
     id: int
-    first_name: str
-    last_name: str
-    email: str
-    phone_number: str
-    license_number: str
-    vehicle_type: VehicleType
-    vehicle_plate: str
-    vehicle_model: Optional[str]
-    vehicle_color: Optional[str]
     status: DriverStatus
     is_active: bool
-    is_verified: bool
-    current_latitude: Optional[float]
-    current_longitude: Optional[float]
-    last_location_update: Optional[datetime]
-    service_radius: float
-    base_latitude: Optional[float]
-    base_longitude: Optional[float]
-    rating: float
-    total_deliveries: int
-    successful_deliveries: int
-    average_delivery_time: float
-    date_joined: date
+    approval_status: str
+    approved_by: Optional[int] = None
+    approved_at: Optional[datetime] = None
+    rejection_reason: Optional[str] = None
     created_at: datetime
-    updated_at: datetime
-    last_active: datetime
-    current_order_id: Optional[int]
+    updated_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True

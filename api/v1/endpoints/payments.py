@@ -6,7 +6,7 @@ from services.payment_service import payment_service
 from models.users import DBUser
 from typing import List
 
-router = APIRouter()
+router = APIRouter(redirect_slashes=False)
 
 @router.post("/initiate", response_model=PaymentInitiateResponse)
 async def initiate_payment(
@@ -139,3 +139,13 @@ def get_payment_methods():
             }
         ]
     }
+
+@router.get("/transactions", response_model=List[PaymentResponse])
+def get_all_transactions(
+    db: Session = Depends(get_db),
+    current_user: DBUser = Depends(get_current_active_user)
+):
+    """Get all payment transactions (admin/manager only)"""
+    
+    payments = payment_service.get_all_payments(db)
+    return payments

@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
-from models.service_provider import ServiceProvider
+from db.models.service_provider import ServiceProvider
 from schemas.service_provider import ServiceProviderCreate
 from utils.hashing import hash_password
 

@@ -1,21 +1,25 @@
 import httpx
 import requests
-from sqlalchemy.orm import Session
+from datetime import datetime, timedelta
+from typing import Optional
 from fastapi import HTTPException, status
-from core.config import get_settings
+from sqlalchemy.orm import Session
+from jose import jwt
+from core.config import settings
 from core.security import verify_password
-from crud.user import user as user_crud
+from crud.user import user_crud
 from schemas.users_schema import UserCreate, UserVerify
 from models.users import DBUser, UserRole
+from pydantic import BaseModel
 import logging
 
+# Set up logging
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-settings = get_settings()
 
-class AdminUserLogin:
-    def __init__(self, email: str, password: str):
-        self.email = email
-        self.password = password
+class AdminUserLogin(BaseModel):
+    email: str
+    password: str
 
 def send_otp(mobile: str) -> dict:
     """Send OTP to phone number using AfroMessage API"""
@@ -104,60 +108,70 @@ def verify_otp(to: str, code: str) -> bool:
         logger.error(f"Exception during OTP verification: {e}")
         return False
 
-def authenticate_user(db: Session, user_verify: UserVerify) -> DBUser:
-    """Authenticate regular user with OTP"""
-    # Step 1: Verify OTP
-    if not verify_otp(user_verify.phone_number, user_verify.otp_code):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired OTP"
-        )
+def create_access_token(data: dict) -> str:
+    """Create JWT access token"""
+    to_encode = data.copy()
+    expire = datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(
+        to_encode,
+        settings.SECRET_KEY,
+        algorithm=settings.ALGORITHM
+    )
+    return encoded_jwt
 
-    # Step 2: Find or create user
-    db_user = user_crud.get_by_phone(db, phone_number=user_verify.phone_number)
+def authenticate_user(db: Session, email: str, password: str) -> Optional[any]:
+    """Authenticate a regular user"""
+    try:
+        user = user_crud.get_by_email(db, email=email)
+        if not user:
+            logger.warning(f"User not found: {email}")
+            return None
+        
+        if not verify_password(password, user.hashed_password):
+            logger.warning(f"Invalid password for user: {email}")
+            return None
+        
+        if not user.is_active:
+            logger.warning(f"Inactive user attempted login: {email}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Inactive user"
+            )
+        
+        return user
+    except Exception as e:
+        logger.error(f"Error in authenticate_user: {str(e)}")
+        raise
 
-    if not db_user:
-        user_create = UserCreate(
-            full_name=user_verify.full_name,
-            phone_number=user_verify.phone_number
-        )
-        db_user = user_crud.create_user(db, user_in=user_create)
-    else:
-        # Update existing user if needed
-        if user_verify.full_name != db_user.full_name:
-            db_user.full_name = user_verify.full_name
-            db.commit()
+def authenticate_admin_user(db: Session, admin_login: AdminUserLogin) -> Optional[any]:
+    """Authenticate an admin user"""
+    try:
+        user = user_crud.get_by_email(db, email=admin_login.email)
+        if not user:
+            logger.warning(f"Admin user not found: {admin_login.email}")
+            return None
 
-    # Ensure user has USER role
-    if db_user.role != UserRole.USER:
-        db_user.role = UserRole.USER
-        db.commit()
+        if not verify_password(admin_login.password, user.hashed_password):
+            logger.warning(f"Invalid password for admin: {admin_login.email}")
+            return None
 
-    return db_user
+        if not user.is_active:
+            logger.warning(f"Inactive admin attempted login: {admin_login.email}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Inactive user"
+            )
 
-def authenticate_admin_user(db: Session, admin_login: AdminUserLogin) -> DBUser:
-    """Authenticate admin/manager user with email and password"""
-    # Find user by email
-    db_user = user_crud.get_by_email(db, email=admin_login.email)
-    
-    if not db_user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password"
-        )
-    
-    # Check if user is admin or manager
-    if db_user.role not in [UserRole.ADMIN, UserRole.MANAGER]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied. Admin or Manager role required."
-        )
-    
-    # Verify password (admin/manager users should have password set)
-    if not db_user.password or not verify_password(admin_login.password, db_user.password):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password"
-        )
-    
-    return db_user
+        # Check if user has admin role
+        if user.role.lower() not in ['admin', 'manager']:
+            logger.warning(f"Non-admin user attempted admin login: {admin_login.email}")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User does not have admin privileges"
+            )
+
+        return user
+    except Exception as e:
+        logger.error(f"Error in authenticate_admin_user: {str(e)}")
+        raise

@@ -5,11 +5,12 @@ from api.deps import (
     get_db, get_current_active_user, get_admin_user, 
     get_manager_user, require_role
 )
-from schemas.users_schema import UserResponse, UserUpdate, UserRole
-from crud.user import user as user_crud
+from schemas.users_schema import UserResponse, UserUpdate
+from models.users import UserRole
+from crud.user import user_crud
 from models.users import DBUser
 
-router = APIRouter()
+router = APIRouter(redirect_slashes=False)
 
 @router.get("/", response_model=List[UserResponse])
 def get_all_users(
@@ -28,8 +29,9 @@ def get_all_users(
     return [UserResponse(
         id=user.id,
         full_name=user.full_name,
-        phone_number=user.phone_number,
+        phone=user.phone,
         email=user.email,
+        role=user.role,
         is_active=user.is_active
     ) for user in users]
 
@@ -43,8 +45,9 @@ def get_regular_users(
     return [UserResponse(
         id=user.id,
         full_name=user.full_name,
-        phone_number=user.phone_number,
+        phone=user.phone,
         email=user.email,
+        role=user.role,
         is_active=user.is_active
     ) for user in users]
 
@@ -58,8 +61,9 @@ def get_admin_users(
     return [UserResponse(
         id=user.id,
         full_name=user.full_name,
-        phone_number=user.phone_number,
+        phone=user.phone,
         email=user.email,
+        role=user.role,
         is_active=user.is_active
     ) for user in users]
 
@@ -84,8 +88,9 @@ def get_user_by_id(
     return UserResponse(
         id=user.id,
         full_name=user.full_name,
-        phone_number=user.phone_number,
+        phone=user.phone,
         email=user.email,
+        role=user.role,
         is_active=user.is_active
     )
 
@@ -97,8 +102,9 @@ def get_current_user_profile(
     return UserResponse(
         id=current_user.id,
         full_name=current_user.full_name,
-        phone_number=current_user.phone_number,
+        phone=current_user.phone,
         email=current_user.email,
+        role=current_user.role,
         is_active=current_user.is_active
     )
 
@@ -125,8 +131,9 @@ def update_user_role(
     return UserResponse(
         id=updated_user.id,
         full_name=updated_user.full_name,
-        phone_number=updated_user.phone_number,
+        phone=updated_user.phone,
         email=updated_user.email,
+        role=updated_user.role,
         is_active=updated_user.is_active
     )
 
