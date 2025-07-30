@@ -1,10 +1,10 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Form
-from sqlalchemy.orm import Session
-from api.deps import get_db, get_admin_user, get_manager_user
-from models.users import DBUser
+from api.deps import get_admin_user, get_manager_user
+from models.mongo_models import User
 from datetime import datetime
 import json
+from models.mongo_models import Item
 
 router = APIRouter(redirect_slashes=False)
 
@@ -61,9 +61,7 @@ ITEMS_STORAGE = [
 ]
 
 @router.get("/", response_model=List[dict])
-def get_all_items(
-    db: Session = Depends(get_db),
-    current_user: DBUser = Depends(get_manager_user),
+def get_all_items(current_user: User = Depends(get_manager_user),
     category: Optional[str] = Query(None, description="Filter by category"),
     is_active: Optional[bool] = Query(None, description="Filter by active status"),
     skip: int = Query(0, ge=0),
@@ -86,9 +84,7 @@ def get_all_items(
 
 @router.get("/{item_id}", response_model=dict)
 def get_item_by_id(
-    item_id: int,
-    db: Session = Depends(get_db),
-    current_user: DBUser = Depends(get_manager_user)
+    item_id: int,current_user: User = Depends(get_manager_user)
 ):
     """Get item/service by ID"""
     item = next((item for item in ITEMS_STORAGE if item["id"] == item_id), None)
@@ -105,9 +101,7 @@ def create_item(
     currency: str = Form("ETB"),
     category: str = Form(...),
     estimated_time: str = Form("24 hours"),
-    is_active: bool = Form(True),
-    db: Session = Depends(get_db),
-    current_user: DBUser = Depends(get_admin_user)
+    is_active: bool = Form(True),current_user: User = Depends(get_admin_user)
 ):
     """Create a new item/service (Admin only)"""
     
@@ -149,9 +143,7 @@ def update_item(
     currency: Optional[str] = Form(None),
     category: Optional[str] = Form(None),
     estimated_time: Optional[str] = Form(None),
-    is_active: Optional[bool] = Form(None),
-    db: Session = Depends(get_db),
-    current_user: DBUser = Depends(get_admin_user)
+    is_active: Optional[bool] = Form(None),current_user: User = Depends(get_admin_user)
 ):
     """Update item/service (Admin only)"""
     
@@ -190,9 +182,7 @@ def update_item(
 
 @router.delete("/{item_id}")
 def delete_item(
-    item_id: int,
-    db: Session = Depends(get_db),
-    current_user: DBUser = Depends(get_admin_user)
+    item_id: int,current_user: User = Depends(get_admin_user)
 ):
     """Delete item/service (Admin only)"""
     item_index = next((i for i, item in enumerate(ITEMS_STORAGE) if item["id"] == item_id), None)
@@ -206,34 +196,43 @@ def delete_item(
         "deleted_item": deleted_item
     }
 
-@router.get("/categories/list", response_model=List[str])
-def get_item_categories(
-    db: Session = Depends(get_db),
-    current_user: DBUser = Depends(get_manager_user)
-):
-    """Get all available item categories"""
-    categories = list(set([item["category"] for item in ITEMS_STORAGE]))
-    return categories
+@router.get("/categories/list")
+async def get_categories(current_user: User = Depends(get_manager_user)):
+    """Get all item categories"""
+    try:
+        # Get unique categories from items
+        categories = await Item.distinct("category")
+        return {"categories": categories}
+    except Exception as e:
+        return {"categories": ["Electronics", "Clothing", "Home", "Books", "Sports"], "note": "Default categories"}
 
-@router.get("/stats/summary", response_model=dict)
-def get_items_summary(
-    db: Session = Depends(get_db),
-    current_user: DBUser = Depends(get_manager_user)
-):
-    """Get items summary statistics"""
-    total_items = len(ITEMS_STORAGE)
-    active_items = len([item for item in ITEMS_STORAGE if item["is_active"]])
-    categories = list(set([item["category"] for item in ITEMS_STORAGE]))
-    
-    # Calculate average price
-    total_price = sum([item["price"] for item in ITEMS_STORAGE])
-    average_price = total_price / total_items if total_items > 0 else 0
-    
-    return {
-        "total_items": total_items,
-        "active_items": active_items,
-        "inactive_items": total_items - active_items,
-        "categories": categories,
-        "average_price": round(average_price, 2),
-        "total_price": total_price
-    } 
+@router.get("/stats/summary")
+async def get_items_stats(current_user: User = Depends(get_manager_user)):
+    """Get items statistics summary"""
+    try:
+        all_items = await Item.find({}).to_list()
+        
+        total_items = len(all_items)
+        active_items = len([item for item in all_items if item.is_active])
+        inactive_items = total_items - active_items
+        
+        # Get category breakdown
+        categories = {}
+        for item in all_items:
+            category = item.category
+            categories[category] = categories.get(category, 0) + 1
+        
+        return {
+            "total_items": total_items,
+            "active_items": active_items,
+            "inactive_items": inactive_items,
+            "categories": categories
+        }
+    except Exception as e:
+        return {
+            "total_items": 0,
+            "active_items": 0,
+            "inactive_items": 0,
+            "categories": {},
+            "error": str(e)
+        } 

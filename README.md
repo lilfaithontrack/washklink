@@ -1,243 +1,197 @@
-# Laundry App Backend
+# WashLink Backend - MongoDB Edition
 
-A comprehensive FastAPI-based backend for a laundry service management application with role-based access control, live tracking, automated assignment, and integrated payment processing.
+WashLink is a modern laundry service platform that connects customers with service providers and delivery drivers. This backend is built with FastAPI and MongoDB, providing a scalable and flexible solution.
 
 ## 🚀 Features
 
-### 🔐 **Authentication & Authorization**
-- **Role-Based Access Control**: USER, MANAGER, ADMIN roles
-- **Phone-Only Authentication**: Regular users authenticate with phone + OTP
-- **Email Authentication**: Admin/Manager users use email + password
-- **JWT Token Security**: Secure token-based authentication
+- **Async Operations**: Built with FastAPI and Motor for high-performance async I/O
+- **MongoDB Integration**: Uses Beanie ODM for elegant MongoDB document mapping
+- **Real-time Location**: Geospatial queries for finding nearby service providers and drivers
+- **Authentication**: JWT-based authentication with role-based access control
+- **API Documentation**: Auto-generated OpenAPI/Swagger documentation
+- **Automated Assignment**: Smart order assignment to service providers and drivers
 
-### 📱 **User Management**
-- **Regular Users**: Phone number + OTP authentication
-- **Admin/Manager Users**: Email + password authentication
-- **Role-Based Permissions**: Different access levels for different user types
+## 🛠️ Tech Stack
 
-### 🧺 **Order Management**
-- **Complete Booking System**: Order creation and processing
-- **Automatic Provider Assignment**: Location-based provider matching
-- **Status Tracking**: Real-time order status updates
-- **Payment Integration**: Chapa and Telebirr payment gateways
+- **FastAPI**: Modern, fast web framework for building APIs
+- **MongoDB**: NoSQL database for flexible data storage
+- **Motor**: Async MongoDB driver for Python
+- **Beanie**: Async ODM (Object Document Mapper) for MongoDB
+- **PyJWT**: JSON Web Token implementation
+- **Pydantic**: Data validation using Python type annotations
 
-### 💳 **Payment Processing**
-- **Multiple Payment Gateways**: Chapa and Telebirr integration
-- **Secure Transactions**: End-to-end payment security
-- **Payment Verification**: Automatic payment status verification
-- **Webhook Support**: Real-time payment status updates
-- **Cash on Delivery**: Traditional payment option
+## 📋 Prerequisites
 
-### 🚚 **Live Tracking & Delivery**
-- **Real-Time Driver Tracking**: WebSocket-based live location updates
-- **Delivery Management**: Driver assignment and route optimization
-- **Customer Notifications**: SMS notifications for order updates
+- Python 3.8+
+- MongoDB 4.4+
+- Redis (for caching and sessions)
 
-### 🏪 **Service Provider Management**
-- **Provider Registration**: Complete provider onboarding
-- **Location-Based Assignment**: Automatic order assignment based on proximity
-- **Capacity Management**: Order load balancing
+## 🔧 Installation
 
-### 📊 **Admin Dashboard**
-- **Real-Time Analytics**: Live tracking dashboard
-- **User Management**: Role-based user administration
-- **Order Monitoring**: Complete order lifecycle management
-- **Payment Analytics**: Transaction monitoring and reporting
-
-## 🏗️ Project Structure
-
-```
-laundry_app_backend/
-├── core/                 # Core configurations and utilities
-│   ├── config.py         # Application settings with payment configs
-│   ├── security.py       # JWT & password hashing
-│   └── exceptions.py     # Custom exceptions
-├── db/                   # Database models and migrations
-│   └── models/           # SQLAlchemy ORM models
-│       ├── payment.py    # Payment model
-│       └── ...
-├── schemas/              # Pydantic models for validation
-│   ├── payment.py        # Payment schemas
-│   └── ...
-├── services/             # Business logic
-│   ├── payment_service.py           # Payment processing logic
-│   ├── payment_gateways/            # Payment gateway integrations
-│   │   ├── base_payment.py          # Abstract payment gateway
-│   │   ├── chapa.py                 # Chapa payment gateway
-│   │   └── telebirr.py              # Telebirr payment gateway
-│   └── ...
-└── api/                  # FastAPI endpoints
-    └── v1/               # API version 1
-        ├── endpoints/
-        │   ├── payments.py          # Payment endpoints
-        │   └── ...
-```
-
-## 🔧 Setup Instructions
-
-### Prerequisites
-
-- Python 3.11+
-- PostgreSQL database
-- AfroMessage API credentials (for SMS)
-- Chapa API credentials (for Chapa payments)
-- Telebirr API credentials (for Telebirr payments)
-
-### Installation
-
-1. **Clone the repository:**
+1. **Clone the repository**:
 ```bash
-git clone <repository-url>
-cd laundry_app_backend
+git clone https://github.com/your-repo/washlink-backend.git
+cd washlink-backend
 ```
 
-2. **Create a virtual environment:**
+2. **Create and activate virtual environment**:
 ```bash
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+source venv/bin/activate  # Linux/macOS
+venv\Scripts\activate     # Windows
 ```
 
-3. **Install dependencies:**
+3. **Install dependencies**:
 ```bash
 pip install -r requirements.txt
 ```
 
-4. **Create a `.env` file:**
-```env
-DATABASE_URL=postgresql://username:password@localhost/database_name
+4. **Set up MongoDB**:
+   - Install MongoDB locally or use Docker:
+   ```bash
+   docker run -d -p 27017:27017 --name washlink-mongo mongo:latest
+   ```
 
-# SMS API
-AFRO_MESSAGE_API_KEY=your_afromessage_api_key
-AFRO_MESSAGE_SENDER_NAME=your_sender_name
-AFRO_MESSAGE_IDENTIFIER_ID=your_identifier_id
-
-# Payment Gateways
-CHAPA_SECRET_KEY=your_chapa_secret_key
-CHAPA_PUBLIC_KEY=your_chapa_public_key
-TELEBIRR_APP_ID=your_telebirr_app_id
-TELEBIRR_APP_KEY=your_telebirr_app_key
-
-# Security
-SECRET_KEY=your_jwt_secret_key
+5. **Configure environment**:
+```bash
+cp env.example.mongodb .env
+# Update .env with your settings
 ```
 
-5. **Run the application:**
+6. **Initialize database**:
+```bash
+python setup_mongodb.py
+```
+
+## 🏃‍♂️ Running the Application
+
+1. **Start the server**:
 ```bash
 uvicorn main:app --reload
 ```
 
-The API will be available at `http://localhost:8000`
-
-## 💳 Payment Integration
-
-### **Supported Payment Methods**
-
-1. **Chapa Payment Gateway**
-   - Credit/Debit Cards
-   - Mobile Money
-   - Bank Transfers
-   - Ethiopian Birr (ETB)
-
-2. **Telebirr Mobile Wallet**
-   - Telebirr mobile payments
-   - Ethiopian Birr (ETB)
-
-3. **Cash on Delivery**
-   - Traditional payment method
-   - Pay when order is delivered
-
-### **Payment Flow**
-
-1. **Initiate Payment**
-```bash
-POST /api/v1/payments/initiate
-{
-    "order_id": 123,
-    "amount": 150.00,
-    "payment_method": "chapa",
-    "return_url": "https://yourapp.com/payment-success"
-}
-```
-
-2. **Redirect to Payment Gateway**
-- User is redirected to Chapa/Telebirr payment page
-- Complete payment on gateway
-
-3. **Payment Verification**
-```bash
-GET /api/v1/payments/verify/{transaction_id}?payment_method=chapa
-```
-
-4. **Webhook Callbacks**
-- Automatic payment status updates
-- Order status progression
-
-### **Payment Security**
-
-- **Secure API Keys**: Environment-based configuration
-- **Transaction Verification**: Double verification of payments
-- **Webhook Validation**: Secure callback handling
-- **PCI Compliance**: Following payment industry standards
+2. **Access the API**:
+- API: http://localhost:8000/api/v1
+- Documentation: http://localhost:8000/docs
+- Alternative docs: http://localhost:8000/redoc
 
 ## 📚 API Documentation
 
-Once running, access:
-- **Swagger UI**: `http://localhost:8000/docs`
-- **ReDoc**: `http://localhost:8000/redoc`
+The API is organized around the following main resources:
 
-## 💳 Payment API Endpoints
+### Users
+- `POST /api/v1/auth/login`: User login
+- `POST /api/v1/auth/admin/login`: Admin login
+- `GET /api/v1/users/me`: Get current user profile
+- `GET /api/v1/users`: List users (admin only)
 
-### **Payment Management**
-- `POST /api/v1/payments/initiate` - Initiate payment
-- `GET /api/v1/payments/verify/{transaction_id}` - Verify payment
-- `GET /api/v1/payments/order/{order_id}` - Get order payment info
-- `GET /api/v1/payments/my-payments` - Get user payment history
-- `GET /api/v1/payments/methods` - Get available payment methods
+### Orders
+- `POST /api/v1/orders`: Create new order
+- `GET /api/v1/orders`: List orders
+- `GET /api/v1/orders/{id}`: Get order details
+- `PUT /api/v1/orders/{id}`: Update order
+- `DELETE /api/v1/orders/{id}`: Delete order
 
-### **Payment Callbacks**
-- `POST /api/v1/payments/chapa/callback` - Chapa webhook
-- `POST /api/v1/payments/telebirr/callback` - Telebirr webhook
+### Service Providers
+- `GET /api/v1/providers/nearby`: Find nearby providers
+- `POST /api/v1/providers`: Register new provider
+- `GET /api/v1/providers/{id}/orders`: Get provider's orders
 
-## 🌍 Environment Variables
+### Drivers
+- `GET /api/v1/drivers/nearby`: Find nearby drivers
+- `POST /api/v1/drivers/location`: Update driver location
+- `GET /api/v1/drivers/{id}/orders`: Get driver's orders
 
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `DATABASE_URL` | PostgreSQL connection string | Yes |
-| `AFRO_MESSAGE_API_KEY` | AfroMessage API key for SMS | Yes |
-| `CHAPA_SECRET_KEY` | Chapa payment gateway secret key | Yes |
-| `CHAPA_PUBLIC_KEY` | Chapa payment gateway public key | Yes |
-| `TELEBIRR_APP_ID` | Telebirr application ID | Yes |
-| `TELEBIRR_APP_KEY` | Telebirr application key | Yes |
-| `SECRET_KEY` | JWT secret key | Yes |
+## 🗄️ Database Structure
 
-## 🔄 Payment Gateway Setup
+### Collections
+- **users**: User accounts and authentication
+- **service_providers**: Laundry service providers
+- **drivers**: Delivery drivers
+- **orders**: Customer orders with embedded items
+- **payments**: Payment transactions
+- **notifications**: User notifications
 
-### **Chapa Setup**
-1. Register at [Chapa.co](https://chapa.co)
-2. Get your API keys from dashboard
-3. Add keys to environment variables
-4. Configure webhook URLs
+### Indexes
+Each collection has optimized indexes for common queries:
+- Geospatial indexes for location-based queries
+- Text indexes for search functionality
+- Compound indexes for complex queries
 
-### **Telebirr Setup**
-1. Contact Telebirr for merchant account
-2. Get application credentials
-3. Add credentials to environment variables
-4. Configure callback URLs
+## 🔒 Security
 
-## 🚀 Default Admin Account
+- JWT-based authentication
+- Role-based access control (User, Manager, Admin)
+- Password hashing with bcrypt
+- CORS protection
+- Rate limiting
+- Input validation with Pydantic
 
-On first startup, a default admin account is created:
-- **Email**: `admin@washlink.com`
-- **Password**: `admin123`
-- **Phone**: `+251911000000`
+## 🧪 Testing
 
-⚠️ **Important**: Change the default password immediately in production!
+Run the test suite:
+```bash
+pytest
+```
+
+For coverage report:
+```bash
+pytest --cov=app tests/
+```
+
+## 🔄 Data Migration
+
+If you're migrating from the SQL version:
+
+1. Keep your SQL database running
+2. Update environment variables:
+```env
+DATABASE_URL=your-old-sql-url
+MONGODB_URL=mongodb://localhost:27017
+MONGODB_DB_NAME=washlink_db
+```
+
+3. Run migration script:
+```bash
+python migrate_to_mongodb.py
+```
+
+## 📈 Monitoring
+
+Monitor your MongoDB deployment:
+- Use MongoDB Compass for visual exploration
+- Set up MongoDB Atlas monitoring
+- Configure logging and alerts
+
+## 🚀 Deployment
+
+1. **Docker**:
+```bash
+docker-compose up -d
+```
+
+2. **Manual**:
+- Set up MongoDB replica set
+- Configure environment variables
+- Use process manager (e.g., Supervisor)
+- Set up reverse proxy (e.g., Nginx)
 
 ## 🤝 Contributing
 
 1. Fork the repository
 2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
+3. Commit your changes
+4. Push to the branch
+5. Create a Pull Request
+
+## 📝 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🆘 Support
+
+For support:
+- Create an issue
+- Contact: support@washlink.com
+- Documentation: [docs/](docs/)
 

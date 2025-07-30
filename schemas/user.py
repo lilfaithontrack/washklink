@@ -20,7 +20,7 @@ class UserUpdate(UserBase):
     password: Optional[str] = None
 
 class UserResponse(BaseModel):
-    id: int
+    id: str
     email: str
     phone: Optional[str] = None
     full_name: str

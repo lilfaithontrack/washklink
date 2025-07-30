@@ -42,7 +42,7 @@ class DriverUpdate(BaseModel):
     is_active: Optional[bool] = None
 
 class DriverApproval(BaseModel):
-    approval_status: ApprovalStatus
+    approval_status: str  # "approved" or "rejected"
     rejection_reason: Optional[str] = None
 
 class DriverResponse(DriverBase):

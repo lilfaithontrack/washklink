@@ -1,156 +1,259 @@
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
-from api.deps import get_db, get_manager_user, get_admin_user
+from api.deps import get_manager_user, get_admin_user
 from schemas.driver import DriverCreate, DriverUpdate, DriverResponse, DriverStatus, DriverApproval
-from crud.driver import driver as driver_crud
-from models.users import DBUser
+from models.mongo_models import User, Driver
 from datetime import datetime
 from services.notification_service import notification_service
-from db.models.notification import NotificationType, NotificationCategory
+from bson import ObjectId
 
 router = APIRouter(redirect_slashes=False)
 
 @router.get("/", response_model=List[DriverResponse])
-def get_drivers(
-    db: Session = Depends(get_db),
+async def get_drivers(
     status: DriverStatus = None,
-    approval_status: str = None
+    approval_status: str = None,
+    current_user: User = Depends(get_manager_user)
 ):
     """Get all drivers (Manager/Admin only)"""
-    drivers = driver_crud.get_multi(db)
-    
-    # Filter by status if provided
-    if status:
-        drivers = [d for d in drivers if d.status == status]
-    
-    # Filter by approval status if provided
-    if approval_status:
-        drivers = [d for d in drivers if d.approval_status == approval_status]
-    
-    return drivers
+    try:
+        # Build query filters
+        query = {}
+        if status:
+            query["status"] = status
+        if approval_status:
+            query["is_verified"] = approval_status.lower() == "approved"
+        
+        # Get drivers from MongoDB
+        drivers = await Driver.find(query).to_list()
+        
+        # Convert to response format
+        driver_responses = []
+        for driver in drivers:
+            driver_responses.append(DriverResponse(
+                id=str(driver.id),
+                full_name=driver.full_name,
+                phone_number=driver.phone_number,
+                email=driver.email,
+                license_number=driver.license_number,
+                vehicle_type=driver.vehicle_type,
+                vehicle_plate=driver.vehicle_plate,
+                status=driver.status,
+                is_verified=driver.is_verified,
+                is_available=driver.is_available,
+                current_location=driver.current_location,
+                rating=driver.rating,
+                total_deliveries=driver.total_deliveries
+            ))
+        
+        return driver_responses
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching drivers: {str(e)}")
 
 @router.get("/{driver_id}", response_model=DriverResponse)
-def get_driver(
-    driver_id: int,
-    db: Session = Depends(get_db),
-    current_user: DBUser = Depends(get_manager_user)
+async def get_driver(
+    driver_id: str,
+    current_user: User = Depends(get_manager_user)
 ):
     """Get driver by ID (Manager/Admin only)"""
-    driver = driver_crud.get(db, id=driver_id)
-    if not driver:
-        raise HTTPException(status_code=404, detail="Driver not found")
-    return driver
+    try:
+        driver = await Driver.get(ObjectId(driver_id))
+        if not driver:
+            raise HTTPException(status_code=404, detail="Driver not found")
+        
+        return DriverResponse(
+            id=str(driver.id),
+            full_name=driver.full_name,
+            phone_number=driver.phone_number,
+            email=driver.email,
+            license_number=driver.license_number,
+            vehicle_type=driver.vehicle_type,
+            vehicle_plate=driver.vehicle_plate,
+            status=driver.status,
+            is_verified=driver.is_verified,
+            is_available=driver.is_available,
+            current_location=driver.current_location,
+            rating=driver.rating,
+            total_deliveries=driver.total_deliveries
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching driver: {str(e)}")
 
 @router.post("/", response_model=DriverResponse)
-def create_driver(
+async def create_driver(
     driver: DriverCreate,
-    db: Session = Depends(get_db),
-    current_user: DBUser = Depends(get_manager_user)
+    current_user: User = Depends(get_manager_user)
 ):
     """Create a new driver (Manager/Admin only)"""
-    # Convert to dict and set approval_status
-    driver_data = driver.dict()
-    driver_data['approval_status'] = 'pending'
-    driver_data['is_active'] = False
-    driver_data['status'] = DriverStatus.OFFLINE
-    
-    new_driver = driver_crud.create(db, obj_in=driver_data)
-    
-    # Create notification for admins about new driver
-    notification_service.notify_admin_users(
-        db=db,
-        title="New Driver Registration",
-        message=f"New driver {new_driver.first_name} {new_driver.last_name} has registered and needs approval",
-        type=NotificationType.INFO,
-        category=NotificationCategory.DRIVER,
-        reference_id=new_driver.id
-    )
-    
-    return new_driver
+    try:
+        # Convert to dict and set default values
+        driver_data = driver.model_dump()
+        driver_data['is_verified'] = False
+        driver_data['is_available'] = False
+        driver_data['status'] = DriverStatus.OFFLINE
+        driver_data['rating'] = 0.0
+        driver_data['total_deliveries'] = 0
+        
+        # Create new driver in MongoDB
+        new_driver = Driver(**driver_data)
+        await new_driver.insert()
+        
+        # Create notification for admins about new driver
+        await notification_service.create_notification(
+            user_id=str(current_user.id),
+            title="New Driver Registration",
+            message=f"New driver {new_driver.full_name} has registered and needs approval",
+            type="INFO",
+            category="DRIVER",
+            reference_id=str(new_driver.id)
+        )
+        
+        return DriverResponse(
+            id=str(new_driver.id),
+            full_name=new_driver.full_name,
+            phone_number=new_driver.phone_number,
+            email=new_driver.email,
+            license_number=new_driver.license_number,
+            vehicle_type=new_driver.vehicle_type,
+            vehicle_plate=new_driver.vehicle_plate,
+            status=new_driver.status,
+            is_verified=new_driver.is_verified,
+            is_available=new_driver.is_available,
+            current_location=new_driver.current_location,
+            rating=new_driver.rating,
+            total_deliveries=new_driver.total_deliveries
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error creating driver: {str(e)}")
 
 @router.put("/{driver_id}", response_model=DriverResponse)
-def update_driver(
-    driver_id: int,
+async def update_driver(
+    driver_id: str,
     driver: DriverUpdate,
-    db: Session = Depends(get_db),
-    current_user: DBUser = Depends(get_manager_user)
+    current_user: User = Depends(get_manager_user)
 ):
     """Update driver information (Manager/Admin only)"""
-    existing_driver = driver_crud.get(db, id=driver_id)
-    if not existing_driver:
-        raise HTTPException(status_code=404, detail="Driver not found")
-    
-    updated_driver = driver_crud.update(db, db_obj=existing_driver, obj_in=driver)
-    
-    # Create notification for status changes
-    if hasattr(driver, 'status') and driver.status is not None and driver.status != existing_driver.status:
-        notification_service.notify_admin_users(
-            db=db,
-            title="Driver Status Updated",
-            message=f"Driver {updated_driver.first_name} {updated_driver.last_name}'s status changed to {driver.status}",
-            type=NotificationType.INFO,
-            category=NotificationCategory.DRIVER,
-            reference_id=driver_id
+    try:
+        # Get existing driver
+        existing_driver = await Driver.get(ObjectId(driver_id))
+        if not existing_driver:
+            raise HTTPException(status_code=404, detail="Driver not found")
+        
+        # Update fields that are provided
+        update_data = driver.model_dump(exclude_unset=True)
+        old_status = existing_driver.status
+        
+        for field, value in update_data.items():
+            if hasattr(existing_driver, field):
+                setattr(existing_driver, field, value)
+        
+        await existing_driver.save()
+        
+        # Create notification for status changes
+        if 'status' in update_data and update_data['status'] != old_status:
+            await notification_service.create_notification(
+                user_id=str(current_user.id),
+                title="Driver Status Updated",
+                message=f"Driver {existing_driver.full_name}'s status changed to {update_data['status']}",
+                type="INFO",
+                category="DRIVER",
+                reference_id=str(driver_id)
+            )
+        
+        return DriverResponse(
+            id=str(existing_driver.id),
+            full_name=existing_driver.full_name,
+            phone_number=existing_driver.phone_number,
+            email=existing_driver.email,
+            license_number=existing_driver.license_number,
+            vehicle_type=existing_driver.vehicle_type,
+            vehicle_plate=existing_driver.vehicle_plate,
+            status=existing_driver.status,
+            is_verified=existing_driver.is_verified,
+            is_available=existing_driver.is_available,
+            current_location=existing_driver.current_location,
+            rating=existing_driver.rating,
+            total_deliveries=existing_driver.total_deliveries
         )
-    
-    return updated_driver
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating driver: {str(e)}")
 
-@router.post("/{driver_id}/approve", response_model=DriverResponse)
-def approve_driver(
-    driver_id: int,
+@router.post("/{driver_id}/approve")
+async def approve_driver(
+    driver_id: str,
     approval: DriverApproval,
-    db: Session = Depends(get_db),
-    current_user: DBUser = Depends(get_admin_user)
+    current_user: User = Depends(get_admin_user)
 ):
     """Approve or reject a driver (Admin only)"""
-    driver = driver_crud.get(db, id=driver_id)
-    if not driver:
-        raise HTTPException(status_code=404, detail="Driver not found")
-    
-    # Normalize to lowercase
-    driver.approval_status = approval.approval_status.lower()
-    driver.approved_by = current_user.id
-    driver.approved_at = datetime.utcnow()
-    
-    if driver.approval_status == "approved":
-        driver.is_active = True
-        driver.status = DriverStatus.AVAILABLE
-        driver.rejection_reason = None
+    try:
+        # Get the driver
+        driver = await Driver.get(ObjectId(driver_id))
+        if not driver:
+            raise HTTPException(status_code=404, detail="Driver not found")
         
-        # Create approval notification for admins
-        notification_service.notify_admin_users(
-            db=db,
-            title="Driver Approved",
-            message=f"Driver {driver.first_name} {driver.last_name} has been approved",
-            type=NotificationType.SUCCESS,
-            category=NotificationCategory.DRIVER,
-            reference_id=driver.id
-        )
-    else:
-        driver.is_active = False
-        driver.status = DriverStatus.SUSPENDED
-        driver.rejection_reason = approval.rejection_reason
+        # Update driver verification status
+        is_approved = approval.approval_status.lower() == "approved"
+        driver.is_verified = is_approved
         
-        # Create rejection notification for admins
-        notification_service.notify_admin_users(
-            db=db,
-            title="Driver Rejected",
-            message=f"Driver {driver.first_name} {driver.last_name} has been rejected. Reason: {approval.rejection_reason}",
-            type=NotificationType.WARNING,
-            category=NotificationCategory.DRIVER,
-            reference_id=driver.id
-        )
-    
-    db.commit()
-    db.refresh(driver)
-    return driver
+        if not is_approved and approval.rejection_reason:
+            # Store rejection reason in driver notes or description field
+            driver.notes = f"Rejected: {approval.rejection_reason}"
+        
+        await driver.save()
+        
+        action = approval.approval_status.lower()
+        return {
+            "message": f"Driver {action} successfully",
+            "driver_id": str(driver.id),
+            "is_verified": driver.is_verified
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating driver approval: {str(e)}")
 
 @router.get("/available/list", response_model=List[DriverResponse])
-def get_available_drivers(
-    db: Session = Depends(get_db),
-    current_user: DBUser = Depends(get_manager_user)
+async def get_available_drivers(
+    current_user: User = Depends(get_manager_user)
 ):
     """Get all available drivers (Manager/Admin only)"""
-    drivers = driver_crud.get_available_drivers(db)
-    return drivers 
+    try:
+        # Get available drivers from MongoDB
+        drivers = await Driver.find({
+            "is_verified": True,
+            "is_available": True,
+            "status": DriverStatus.AVAILABLE
+        }).to_list()
+        
+        # Convert to response format
+        driver_responses = []
+        for driver in drivers:
+            driver_responses.append(DriverResponse(
+                id=str(driver.id),
+                full_name=driver.full_name,
+                phone_number=driver.phone_number,
+                email=driver.email,
+                license_number=driver.license_number,
+                vehicle_type=driver.vehicle_type,
+                vehicle_plate=driver.vehicle_plate,
+                status=driver.status,
+                is_verified=driver.is_verified,
+                is_available=driver.is_available,
+                current_location=driver.current_location,
+                rating=driver.rating,
+                total_deliveries=driver.total_deliveries
+            ))
+        
+        return driver_responses
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching available drivers: {str(e)}") 

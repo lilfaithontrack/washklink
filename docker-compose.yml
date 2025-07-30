@@ -1,0 +1,77 @@
+version: '3.8'
+
+services:
+  # MongoDB service
+  mongodb:
+    image: mongo:latest
+    container_name: washlink-mongodb
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGODB_USERNAME:-root}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGODB_PASSWORD:-example}
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - washlink-network
+
+  # MongoDB Express Web UI (optional)
+  mongo-express:
+    image: mongo-express:latest
+    container_name: washlink-mongo-express
+    restart: always
+    ports:
+      - "8081:8081"
+    environment:
+      ME_CONFIG_MONGODB_ADMINUSERNAME: ${MONGODB_USERNAME:-root}
+      ME_CONFIG_MONGODB_ADMINPASSWORD: ${MONGODB_PASSWORD:-example}
+      ME_CONFIG_MONGODB_URL: mongodb://${MONGODB_USERNAME:-root}:${MONGODB_PASSWORD:-example}@mongodb:27017/
+    depends_on:
+      - mongodb
+    networks:
+      - washlink-network
+
+  # Redis service for caching and sessions
+  redis:
+    image: redis:alpine
+    container_name: washlink-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - washlink-network
+
+  # FastAPI backend service
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: washlink-backend
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      - MONGODB_URL=mongodb://${MONGODB_USERNAME:-root}:${MONGODB_PASSWORD:-example}@mongodb:27017/
+      - MONGODB_DB_NAME=${MONGODB_DB_NAME:-washlink_db}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+    depends_on:
+      - mongodb
+      - redis
+    networks:
+      - washlink-network
+    volumes:
+      - .:/app
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+volumes:
+  mongodb_data:
+  redis_data:
+
+networks:
+  washlink-network:
+    driver: bridge 

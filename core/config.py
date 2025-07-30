@@ -7,6 +7,10 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "WashLink API"
     VERSION: str = "1.0.0"
     API_V1_STR: str = "/api/v1"
+    # MongoDB settings
+    MONGODB_URL: str = "mongodb://localhost:27017"
+    MONGODB_DB_NAME: str = "washlink_db"
+    # Legacy SQL database URL (for migration purposes)
     DATABASE_URL: str = "sqlite:///./washlink.db"
     # Redis settings
     REDIS_HOST: str = "localhost"

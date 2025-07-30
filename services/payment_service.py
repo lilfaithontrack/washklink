@@ -1,9 +1,9 @@
 from typing import Dict, Any, Optional
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
-from db.models.payment import Payment, PaymentStatus, PaymentMethod
-from models.booking import Booking
-from models.users import DBUser
+from models.mongo_models import Payment, PaymentStatus, PaymentMethod
+from models.mongo_models import Order
+from models.mongo_models import User
 from services.payment_gateways.chapa import ChapaPaymentGateway
 from services.payment_gateways.telebirr import TelebirrPaymentGateway
 from core.config import get_settings
@@ -28,7 +28,7 @@ class PaymentService:
         db: Session, 
         order_id: int, 
         payment_method: PaymentMethod,
-        user: DBUser,
+        user: User,
         return_url: Optional[str] = None
     ) -> Dict[str, Any]:
         """Initiate payment for an order"""
@@ -145,10 +145,11 @@ class PaymentService:
                         payment.completed_at = datetime.utcnow()
                         
                         # Update order status
-                        order = db.query(Booking).filter(Booking.id == payment.order_id).first()
-                        if order:
-                            from models.booking import OrderStatus
-                            order.status = OrderStatus.ACCEPTED  # Move to next stage after payment
+                        # Note: This needs to be updated for MongoDB
+                        # order = await Order.get(payment.order_id)
+                        # if order:
+                        #     order.status = OrderStatus.ACCEPTED  # Move to next stage after payment
+                        #     await order.save()
                         
                         db.commit()
                         
@@ -204,10 +205,11 @@ class PaymentService:
                         payment.completed_at = datetime.utcnow()
                         
                         # Update order status
-                        order = db.query(Booking).filter(Booking.id == payment.order_id).first()
-                        if order:
-                            from models.booking import OrderStatus
-                            order.status = OrderStatus.ACCEPTED
+                        # Note: This needs to be updated for MongoDB
+                        # order = await Order.get(payment.order_id)
+                        # if order:
+                        #     order.status = OrderStatus.ACCEPTED
+                        #     await order.save()
                         
                         db.commit()
                         

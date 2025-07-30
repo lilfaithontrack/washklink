@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel, EmailStr
 from typing import List 
 from database import SessionLocal
-from models.users import DBUser
+from models.mongo_models import User
 from schemas.users_schema import UserResponse, UserCreate, UserUpdate
 from utils.afromessage import send_otp as send_afro_otp, verify_otp
 
@@ -46,12 +46,12 @@ def login_legacy(user: UserVerify, db: Session = Depends(get_db)):
         )
 
     # Step 2: Find or create user
-    db_user = db.query(DBUser).filter(DBUser.phone_number == user.phone_number).first()
+    db_user = db.query(User).filter(User.phone_number == user.phone_number).first()
 
     if not db_user:
         # Create as regular user (USER role)
         from app.db.models.user import UserRole
-        db_user = DBUser(
+        db_user = User(
             full_name=user.full_name,
             phone_number=user.phone_number,
             email=None,  # Regular users don't have email
@@ -82,7 +82,7 @@ def login_legacy(user: UserVerify, db: Session = Depends(get_db)):
 @router.get("/users", response_model=List[UserResponse])
 def get_all_users_legacy(db: Session = Depends(get_db)):
     """Legacy endpoint - basic functionality maintained"""
-    users = db.query(DBUser).all()
+    users = db.query(User).all()
     return [
         UserResponse(
             id=user.id,
@@ -96,7 +96,7 @@ def get_all_users_legacy(db: Session = Depends(get_db)):
 @router.get("/users/{user_id}", response_model=UserResponse)
 def get_user_by_id_legacy(user_id: int, db: Session = Depends(get_db)):
     """Legacy endpoint - basic functionality maintained"""
-    user = db.query(DBUser).filter(DBUser.id == user_id).first()
+    user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     

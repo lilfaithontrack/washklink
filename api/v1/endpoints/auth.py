@@ -1,12 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
 from fastapi.security import OAuth2PasswordRequestForm
-from sqlalchemy.orm import Session
 from typing import Any
-from api.deps import get_db, get_current_active_user
+from api.deps import get_current_active_user
 from services.auth_service import authenticate_user, authenticate_admin_user
 from schemas.auth import AdminLogin
 from schemas.user import UserResponse
-from models.users import DBUser
+from models.mongo_models import User
 import logging
 import uuid
 
@@ -20,13 +19,12 @@ logger = logging.getLogger(__name__)
 router = APIRouter(redirect_slashes=False)
 
 @router.post("/login")
-def login(
+async def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
-    db: Session = Depends(get_db),
     response: Response = None,
 ) -> Any:
     try:
-        user = authenticate_user(db, form_data.username, form_data.password)
+        user = await authenticate_user(form_data.username, form_data.password)
         if not user:
             logger.warning(f"Failed login attempt for user: {form_data.username}")
             raise HTTPException(
@@ -35,7 +33,7 @@ def login(
                 headers={"WWW-Authenticate": "Bearer"},
             )
         payload = {
-            "user_id": user.id,
+            "user_id": str(user.id),
             "role": user.role,
             "is_active": user.is_active,
             "exp": datetime.utcnow() + timedelta(days=7)
@@ -54,9 +52,9 @@ def login(
         return {
             "message": "Login successful",
             "user": UserResponse(
-                id=user.id,
+                id=str(user.id),
                 full_name=user.full_name,
-                phone=user.phone,
+                phone=user.phone_number,
                 email=user.email,
                 role=user.role,
                 is_active=user.is_active
@@ -70,10 +68,10 @@ def login(
         )
 
 @router.post("/admin/login")
-def admin_login(admin_user: AdminLogin, db: Session = Depends(get_db), response: Response = None) -> Any:
+async def admin_login(admin_user: AdminLogin, response: Response = None) -> Any:
     try:
         logger.info(f"Admin login attempt for: {admin_user.email}")
-        user = authenticate_admin_user(db, admin_user)
+        user = await authenticate_admin_user(admin_user)
         if not user:
             logger.warning(f"Failed admin login attempt for: {admin_user.email}")
             raise HTTPException(
@@ -82,7 +80,7 @@ def admin_login(admin_user: AdminLogin, db: Session = Depends(get_db), response:
                 headers={"WWW-Authenticate": "Bearer"},
             )
         payload = {
-            "user_id": user.id,
+            "user_id": str(user.id),
             "role": user.role,
             "is_active": user.is_active,
             "exp": datetime.utcnow() + timedelta(days=7)
@@ -99,9 +97,9 @@ def admin_login(admin_user: AdminLogin, db: Session = Depends(get_db), response:
         )
         logger.info(f"Successful admin login for: {user.email}")
         user_response = UserResponse(
-            id=user.id,
+            id=str(user.id),
             full_name=user.full_name,
-            phone=user.phone,
+            phone=user.phone_number,
             email=user.email,
             role=user.role,
             is_active=user.is_active
@@ -128,12 +126,12 @@ def logout(request: Request, response: Response):
     return {"message": "Logged out"}
 
 @router.get("/me", response_model=UserResponse)
-def read_users_me(current_user: DBUser = Depends(get_current_active_user)) -> Any:
+async def read_users_me(current_user: User = Depends(get_current_active_user)) -> Any:
     """Get current user profile"""
     return UserResponse(
-        id=current_user.id,
+        id=str(current_user.id),
         full_name=current_user.full_name,
-        phone=current_user.phone,
+        phone=current_user.phone_number,
         email=current_user.email,
         role=current_user.role,
         is_active=current_user.is_active

@@ -1,9 +1,11 @@
 import math
 from typing import List, Tuple, Optional
-from sqlalchemy.orm import Session
-from db.models.service_provider import ServiceProvider
-from db.models.driver import Driver, DriverStatus
-from models.booking import Booking
+from models.mongo_models import ServiceProvider, Driver, DriverStatus, Order
+from bson import ObjectId
+from datetime import datetime
+import logging
+
+logger = logging.getLogger(__name__)
 
 class LocationService:
     @staticmethod
@@ -27,8 +29,7 @@ class LocationService:
         return c * r
 
     @staticmethod
-    def find_nearby_providers(
-        db: Session, 
+    async def find_nearby_providers(
         latitude: float, 
         longitude: float, 
         max_radius: float = 10.0,
@@ -38,10 +39,39 @@ class LocationService:
         Find service providers within a given radius, sorted by distance
         Returns list of tuples (provider, distance_km)
         """
-        # Get all active providers
-        providers = db.query(ServiceProvider).filter(
-            ServiceProvider.is_active == True
-        ).all()
+        # Use MongoDB's geospatial query to find nearby providers
+        providers = await ServiceProvider.find(
+            {
+                "is_active": True,
+                "$and": [
+                    {
+                        "$expr": {
+                            "$lte": [
+                                {
+                                    "$sqrt": {
+                                        "$add": [
+                                            {
+                                                "$pow": [
+                                                    {"$subtract": ["$latitude", latitude]},
+                                                    2
+                                                ]
+                                            },
+                                            {
+                                                "$pow": [
+                                                    {"$subtract": ["$longitude", longitude]},
+                                                    2
+                                                ]
+                                            }
+                                        ]
+                                    }
+                                },
+                                max_radius / 111.0  # Convert km to degrees (approximate)
+                            ]
+                        }
+                    }
+                ]
+            }
+        ).to_list()
 
         nearby_providers = []
         
@@ -60,8 +90,7 @@ class LocationService:
         return nearby_providers
 
     @staticmethod
-    def find_nearby_drivers(
-        db: Session,
+    async def find_nearby_drivers(
         latitude: float,
         longitude: float,
         max_radius: float = 15.0
@@ -70,13 +99,42 @@ class LocationService:
         Find available drivers within a given radius, sorted by distance
         Returns list of tuples (driver, distance_km)
         """
-        # Get all available drivers
-        drivers = db.query(Driver).filter(
-            Driver.status == DriverStatus.AVAILABLE,
-            Driver.is_active == True,
-            Driver.current_latitude.isnot(None),
-            Driver.current_longitude.isnot(None)
-        ).all()
+        # Use MongoDB's geospatial query to find nearby drivers
+        drivers = await Driver.find(
+            {
+                "status": DriverStatus.AVAILABLE,
+                "is_active": True,
+                "current_latitude": {"$ne": None},
+                "current_longitude": {"$ne": None},
+                "$and": [
+                    {
+                        "$expr": {
+                            "$lte": [
+                                {
+                                    "$sqrt": {
+                                        "$add": [
+                                            {
+                                                "$pow": [
+                                                    {"$subtract": ["$current_latitude", latitude]},
+                                                    2
+                                                ]
+                                            },
+                                            {
+                                                "$pow": [
+                                                    {"$subtract": ["$current_longitude", longitude]},
+                                                    2
+                                                ]
+                                            }
+                                        ]
+                                    }
+                                },
+                                max_radius / 111.0  # Convert km to degrees (approximate)
+                            ]
+                        }
+                    }
+                ]
+            }
+        ).to_list()
 
         nearby_drivers = []
         
@@ -93,5 +151,117 @@ class LocationService:
         # Sort by distance and rating
         nearby_drivers.sort(key=lambda x: (x[1], -x[0].rating))
         return nearby_drivers
+
+    @staticmethod
+    async def update_driver_location(
+        driver_id: str,
+        latitude: float,
+        longitude: float
+    ) -> Optional[Driver]:
+        """Update driver's current location"""
+        try:
+            driver = await Driver.get(ObjectId(driver_id))
+            if not driver:
+                return None
+
+            driver.current_latitude = latitude
+            driver.current_longitude = longitude
+            driver.last_location_update = datetime.utcnow()
+            await driver.save()
+
+            return driver
+        except Exception as e:
+            logger.error(f"Error updating driver location: {str(e)}")
+            return None
+
+    @staticmethod
+    async def get_active_drivers_in_area(
+        latitude: float,
+        longitude: float,
+        radius: float = 10.0
+    ) -> List[Driver]:
+        """Get all active drivers in a specific area"""
+        try:
+            return await Driver.find(
+                {
+                    "is_active": True,
+                    "status": {"$in": [DriverStatus.AVAILABLE, DriverStatus.ON_DELIVERY]},
+                    "$and": [
+                        {
+                            "$expr": {
+                                "$lte": [
+                                    {
+                                        "$sqrt": {
+                                            "$add": [
+                                                {
+                                                    "$pow": [
+                                                        {"$subtract": ["$current_latitude", latitude]},
+                                                        2
+                                                    ]
+                                                },
+                                                {
+                                                    "$pow": [
+                                                        {"$subtract": ["$current_longitude", longitude]},
+                                                        2
+                                                    ]
+                                                }
+                                            ]
+                                        }
+                                    },
+                                    radius / 111.0  # Convert km to degrees (approximate)
+                                ]
+                            }
+                        }
+                    ]
+                }
+            ).to_list()
+        except Exception as e:
+            logger.error(f"Error getting active drivers in area: {str(e)}")
+            return []
+
+    @staticmethod
+    async def get_active_providers_in_area(
+        latitude: float,
+        longitude: float,
+        radius: float = 10.0
+    ) -> List[ServiceProvider]:
+        """Get all active service providers in a specific area"""
+        try:
+            return await ServiceProvider.find(
+                {
+                    "is_active": True,
+                    "is_available": True,
+                    "$and": [
+                        {
+                            "$expr": {
+                                "$lte": [
+                                    {
+                                        "$sqrt": {
+                                            "$add": [
+                                                {
+                                                    "$pow": [
+                                                        {"$subtract": ["$latitude", latitude]},
+                                                        2
+                                                    ]
+                                                },
+                                                {
+                                                    "$pow": [
+                                                        {"$subtract": ["$longitude", longitude]},
+                                                        2
+                                                    ]
+                                                }
+                                            ]
+                                        }
+                                    },
+                                    radius / 111.0  # Convert km to degrees (approximate)
+                                ]
+                            }
+                        }
+                    ]
+                }
+            ).to_list()
+        except Exception as e:
+            logger.error(f"Error getting active providers in area: {str(e)}")
+            return []
 
 location_service = LocationService()

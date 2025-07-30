@@ -1,41 +1,72 @@
 import os
-from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from motor.motor_asyncio import AsyncIOMotorClient
+from beanie import init_beanie
 from dotenv import load_dotenv
 from core.config import settings
+import logging
+from urllib.parse import urlparse
 
 # Load environment variables from .env
 load_dotenv()
 
-# Create database URL from settings
-SQLALCHEMY_DATABASE_URL = settings.DATABASE_URL
+# Set up logging
+logger = logging.getLogger(__name__)
 
-# Create SQLAlchemy engine
-engine = create_engine(SQLALCHEMY_DATABASE_URL)
+# MongoDB client and database
+client: AsyncIOMotorClient = None
+database = None
 
-# Create sessionmaker
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+def get_database_name_from_url(url: str) -> str:
+    """Extract database name from MongoDB connection URL"""
+    parsed = urlparse(url)
+    # The path in the URL contains the database name (removing the leading '/')
+    db_name = parsed.path.lstrip('/') if parsed.path else 'washlink_db'
+    # If no database in URL, return default
+    return db_name if db_name else 'washlink_db'
 
-# Create base class for declarative models
-Base = declarative_base()
-
-# Import all models here to ensure they are registered with SQLAlchemy
-from db.models.driver import Driver
-from db.models.order import Order
-from db.models.service_provider import ServiceProvider
-from db.models.notification import Notification
-from db.models.payment import Payment
-from models.users import DBUser
-
-# Create all tables
-def init_db():
-    Base.metadata.create_all(bind=engine)
-
-# Dependency for getting DB session in routes
-def get_db():
-    db = SessionLocal()
+# MongoDB connection
+async def connect_to_mongo():
+    """Create database connection"""
+    global client, database
     try:
-        yield db
-    finally:
-        db.close()
+        client = AsyncIOMotorClient(settings.MONGODB_URL)
+        db_name = get_database_name_from_url(settings.MONGODB_URL)
+        database = client[db_name]
+        
+        # Import all models for beanie initialization
+        from models.mongo_models import (
+            User, ServiceProvider, Driver, Order, 
+            Item, Payment, Notification
+        )
+        
+        # Initialize beanie with all models
+        await init_beanie(
+            database=database,
+            document_models=[
+                User, ServiceProvider, Driver, Order,
+                Item, Payment, Notification
+            ]
+        )
+        
+        logger.info(f"Connected to MongoDB database: {db_name}")
+        
+    except Exception as e:
+        logger.error(f"Error connecting to MongoDB: {str(e)}")
+        raise
+
+async def close_mongo_connection():
+    """Close database connection"""
+    global client
+    if client:
+        client.close()
+        logger.info("Disconnected from MongoDB")
+
+# Initialize database
+async def init_db():
+    """Initialize the database connection"""
+    await connect_to_mongo()
+
+# Get database instance
+def get_database():
+    """Get database instance"""
+    return database

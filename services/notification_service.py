@@ -1,132 +1,133 @@
 from typing import List, Optional
-from sqlalchemy.orm import Session
 from datetime import datetime
-from db.models.notification import Notification, NotificationType, NotificationCategory
-from schemas.notification import NotificationCreate
-from models.users import DBUser
+from models.mongo_models import Notification
+from schemas.notification import NotificationCreate, NotificationType, NotificationCategory
+from models.mongo_models import User
+from bson import ObjectId
 
 class NotificationService:
     @staticmethod
-    def create_notification(
-        db: Session,
-        user_id: int,
+    async def create_notification(
+        user_id: str,
         title: str,
         message: str,
-        type: NotificationType = NotificationType.INFO,
-        category: NotificationCategory = NotificationCategory.SYSTEM,
-        link: Optional[str] = None,
-        reference_id: Optional[int] = None
+        notification_type: str = "info",
+        data: Optional[dict] = None
     ) -> Notification:
         """Create a new notification"""
         notification = Notification(
-            user_id=user_id,
+            user_id=ObjectId(user_id),
             title=title,
             message=message,
-            type=type,
-            category=category,
-            link=link,
-            reference_id=reference_id
+            type=notification_type,
+            data=data
         )
-        db.add(notification)
-        db.commit()
-        db.refresh(notification)
+        await notification.insert()
         return notification
 
     @staticmethod
-    def get_user_notifications(
-        db: Session,
-        user_id: int,
+    async def get_user_notifications(
+        user_id: str,
         skip: int = 0,
         limit: int = 50,
         unread_only: bool = False
     ) -> List[Notification]:
         """Get notifications for a user"""
-        query = db.query(Notification).filter(Notification.user_id == user_id)
+        query = {"user_id": ObjectId(user_id)}
         
         if unread_only:
-            query = query.filter(Notification.is_read == False)
+            query["is_read"] = False
         
-        return query.order_by(Notification.created_at.desc()).offset(skip).limit(limit).all()
-
-    @staticmethod
-    def mark_as_read(db: Session, notification_id: int, user_id: int) -> Optional[Notification]:
-        """Mark a notification as read"""
-        notification = db.query(Notification).filter(
-            Notification.id == notification_id,
-            Notification.user_id == user_id
-        ).first()
-        
-        if notification and not notification.is_read:
-            notification.is_read = True
-            notification.read_at = datetime.utcnow()
-            db.commit()
-            db.refresh(notification)
-        
-        return notification
-
-    @staticmethod
-    def mark_all_as_read(db: Session, user_id: int) -> int:
-        """Mark all notifications as read for a user"""
-        result = db.query(Notification).filter(
-            Notification.user_id == user_id,
-            Notification.is_read == False
-        ).update({
-            "is_read": True,
-            "read_at": datetime.utcnow()
-        })
-        db.commit()
-        return result
-
-    @staticmethod
-    def delete_notification(db: Session, notification_id: int, user_id: int) -> bool:
-        """Delete a notification"""
-        result = db.query(Notification).filter(
-            Notification.id == notification_id,
-            Notification.user_id == user_id
-        ).delete()
-        db.commit()
-        return result > 0
-
-    @staticmethod
-    def get_unread_count(db: Session, user_id: int) -> int:
-        """Get count of unread notifications"""
-        return db.query(Notification).filter(
-            Notification.user_id == user_id,
-            Notification.is_read == False
-        ).count()
-
-    @staticmethod
-    def notify_admin_users(
-        db: Session,
-        title: str,
-        message: str,
-        type: NotificationType = NotificationType.INFO,
-        category: NotificationCategory = NotificationCategory.SYSTEM,
-        link: Optional[str] = None,
-        reference_id: Optional[int] = None
-    ) -> List[Notification]:
-        """Create notifications for all admin users"""
-        # Get all admin users
-        admin_users = db.query(DBUser).filter(
-            DBUser.is_active == True,
-            DBUser.role.in_(['admin', 'manager'])
-        ).all()
-        
-        notifications = []
-        for user in admin_users:
-            notification = NotificationService.create_notification(
-                db=db,
-                user_id=user.id,
-                title=title,
-                message=message,
-                type=type,
-                category=category,
-                link=link,
-                reference_id=reference_id
-            )
-            notifications.append(notification)
-        
+        notifications = await Notification.find(query).skip(skip).limit(limit).sort("-created_at").to_list()
         return notifications
 
-# Global instance
+    @staticmethod
+    async def mark_as_read(notification_id: str, user_id: str) -> Optional[Notification]:
+        """Mark a notification as read"""
+        try:
+            notification = await Notification.find_one({
+                "_id": ObjectId(notification_id),
+                "user_id": ObjectId(user_id)
+            })
+            
+            if notification and not notification.is_read:
+                notification.is_read = True
+                await notification.save()
+            
+            return notification
+        except Exception:
+            return None
+
+    @staticmethod
+    async def mark_all_as_read(user_id: str) -> int:
+        """Mark all notifications as read for a user"""
+        try:
+            result = await Notification.find({"user_id": ObjectId(user_id), "is_read": False}).update_many(
+                {"$set": {"is_read": True}}
+            )
+            return result.modified_count if result else 0
+        except Exception:
+            return 0
+
+    @staticmethod
+    async def delete_notification(notification_id: str, user_id: str) -> bool:
+        """Delete a notification"""
+        try:
+            notification = await Notification.find_one({
+                "_id": ObjectId(notification_id),
+                "user_id": ObjectId(user_id)
+            })
+            
+            if notification:
+                await notification.delete()
+                return True
+            return False
+        except Exception:
+            return False
+
+    @staticmethod
+    async def get_notification_count(user_id: str, unread_only: bool = False) -> int:
+        """Get notification count for a user"""
+        try:
+            query = {"user_id": ObjectId(user_id)}
+            if unread_only:
+                query["is_read"] = False
+            
+            count = await Notification.find(query).count()
+            return count
+        except Exception:
+            return 0
+
+    # Helper methods for specific notification types
+    @staticmethod
+    async def notify_order_status_change(user_id: str, order_id: str, status: str):
+        """Create order status change notification"""
+        title = "Order Status Update"
+        message = f"Your order status has been updated to: {status}"
+        data = {"order_id": order_id, "status": status}
+        
+        return await NotificationService.create_notification(
+            user_id=user_id,
+            title=title,
+            message=message,
+            notification_type="order_update",
+            data=data
+        )
+
+    @staticmethod
+    async def notify_payment_confirmation(user_id: str, payment_id: str, amount: float):
+        """Create payment confirmation notification"""
+        title = "Payment Confirmed"
+        message = f"Your payment of ${amount:.2f} has been confirmed"
+        data = {"payment_id": payment_id, "amount": amount}
+        
+        return await NotificationService.create_notification(
+            user_id=user_id,
+            title=title,
+            message=message,
+            notification_type="payment_confirmation",
+            data=data
+        )
+
+# Create instance for easier usage
 notification_service = NotificationService() 

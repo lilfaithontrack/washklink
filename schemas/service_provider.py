@@ -23,10 +23,13 @@ class ServiceProviderCreate(BaseModel):
     address: str = Field(..., min_length=1, max_length=100)
     nearby_condominum: str = Field(..., min_length=1, max_length=100)
     phone_number: int
-    date_of_birth: date
-    washing_machine: bool
+    date_of_birth: datetime
+    washing_machine: bool = True
+    has_dryer: bool = False
+    has_iron: bool = True
     longitude: float
     latitude: float
+    service_radius: Optional[float] = 10.0
     business_name: Optional[str] = None
     business_license: Optional[str] = None
     description: Optional[str] = None
@@ -40,46 +43,52 @@ class ServiceProviderUpdate(BaseModel):
     nearby_condominum: Optional[str] = None
     phone_number: Optional[int] = None
     washing_machine: Optional[bool] = None
+    has_dryer: Optional[bool] = None
+    has_iron: Optional[bool] = None
     longitude: Optional[float] = None
     latitude: Optional[float] = None
+    service_radius: Optional[float] = None
     business_name: Optional[str] = None
     business_license: Optional[str] = None
     description: Optional[str] = None
     status: Optional[ProviderStatus] = None
     is_active: Optional[bool] = None
+    is_verified: Optional[bool] = None
+    max_daily_orders: Optional[int] = None
 
 class ServiceProviderApproval(BaseModel):
-    approval_status: ApprovalStatus
+    approval_status: str  # "approved" or "rejected"
     rejection_reason: Optional[str] = None
 
 class ServiceProviderResponse(BaseModel):
-    id: int
+    id: str  # MongoDB uses string IDs
     email: EmailStr
     first_name: str
     middle_name: str
     last_name: str
+    full_name: str
     address: str
     nearby_condominum: str
     phone_number: int
-    date_of_birth: date
+    date_of_birth: datetime
     washing_machine: bool
+    has_dryer: bool
+    has_iron: bool
     longitude: float
     latitude: float
+    service_radius: float
     status: ProviderStatus
     is_active: bool
+    is_available: bool
     is_verified: bool
-    approval_status: ApprovalStatus
-    approved_at: Optional[datetime]
-    approved_by: Optional[int]
-    rejection_reason: Optional[str]
     business_name: Optional[str]
     business_license: Optional[str]
     description: Optional[str]
-    service_radius: float
     rating: float
     total_orders_completed: int
     max_daily_orders: int
     current_order_count: int
+    average_completion_time: float
     created_at: datetime
     updated_at: datetime
     last_active: datetime

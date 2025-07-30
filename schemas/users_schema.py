@@ -28,7 +28,7 @@ class UserUpdate(BaseModel):
 
 # Auth response (simplified for legacy compatibility)
 class UserResponse(BaseModel):
-    id: int
+    id: str
     full_name: str
     phone: Optional[str]
     email: Optional[str]

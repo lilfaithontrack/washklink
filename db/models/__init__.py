@@ -1,2 +1,1 @@
-# SQLAlchemy ORM models
-from .order_item import OrderItem
+# This directory is deprecated - models have been moved to models/mongo_models.py

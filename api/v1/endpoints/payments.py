@@ -1,18 +1,16 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
-from api.deps import get_db, get_current_active_user
+from fastapi import APIRouter, Depends, HTTPException, Query
+from api.deps import get_current_active_user, get_manager_user
 from schemas.payment import PaymentInitiate, PaymentCallback, PaymentResponse, PaymentInitiateResponse, PaymentMethod
 from services.payment_service import payment_service
-from models.users import DBUser
-from typing import List
+from models.mongo_models import User
+from typing import List, Optional
+from models.mongo_models import Payment
 
 router = APIRouter(redirect_slashes=False)
 
 @router.post("/initiate", response_model=PaymentInitiateResponse)
 async def initiate_payment(
-    payment_data: PaymentInitiate,
-    db: Session = Depends(get_db),
-    current_user: DBUser = Depends(get_current_active_user)
+    payment_data: PaymentInitiate,current_user: User = Depends(get_current_active_user)
 ):
     """Initiate payment with selected gateway"""
     try:
@@ -37,9 +35,7 @@ async def initiate_payment(
 
 @router.post("/chapa/callback")
 async def chapa_callback(
-    callback_data: PaymentCallback,
-    db: Session = Depends(get_db)
-):
+    callback_data: PaymentCallback):
     """Handle Chapa payment callback"""
     try:
         result = await payment_service.handle_callback(
@@ -53,9 +49,7 @@ async def chapa_callback(
 
 @router.post("/telebirr/callback")
 async def telebirr_callback(
-    callback_data: PaymentCallback,
-    db: Session = Depends(get_db)
-):
+    callback_data: PaymentCallback):
     """Handle Telebirr payment callback"""
     try:
         result = await payment_service.handle_callback(
@@ -70,9 +64,7 @@ async def telebirr_callback(
 @router.get("/verify/{transaction_id}")
 async def verify_payment(
     transaction_id: str,
-    payment_method: PaymentMethod,
-    db: Session = Depends(get_db),
-    current_user: DBUser = Depends(get_current_active_user)
+    payment_method: PaymentMethod,current_user: User = Depends(get_current_active_user)
 ):
     """Verify payment status"""
     try:
@@ -87,9 +79,7 @@ async def verify_payment(
 
 @router.get("/order/{order_id}", response_model=PaymentResponse)
 def get_order_payment(
-    order_id: int,
-    db: Session = Depends(get_db),
-    current_user: DBUser = Depends(get_current_active_user)
+    order_id: int,current_user: User = Depends(get_current_active_user)
 ):
     """Get payment information for an order"""
     payment = payment_service.get_payment_by_order(db, order_id)
@@ -103,49 +93,57 @@ def get_order_payment(
     return payment
 
 @router.get("/my-payments", response_model=List[PaymentResponse])
-def get_my_payments(
-    db: Session = Depends(get_db),
-    current_user: DBUser = Depends(get_current_active_user)
+def get_my_payments(current_user: User = Depends(get_current_active_user)
 ):
     """Get current user's payment history"""
     payments = payment_service.get_user_payments(db, current_user.id)
     return payments
 
 @router.get("/methods")
-def get_payment_methods():
+async def get_payment_methods(current_user: User = Depends(get_current_active_user)):
     """Get available payment methods"""
-    return {
-        "methods": [
-            {
-                "id": "chapa",
-                "name": "Chapa",
-                "description": "Pay with Chapa - Cards, Mobile Money, Bank Transfer",
-                "logo": "https://chapa.co/logo.png",
-                "supported_currencies": ["ETB"]
-            },
-            {
-                "id": "telebirr",
-                "name": "Telebirr",
-                "description": "Pay with Telebirr Mobile Wallet",
-                "logo": "https://telebirr.et/logo.png",
-                "supported_currencies": ["ETB"]
-            },
-            {
-                "id": "cash_on_delivery",
-                "name": "Cash on Delivery",
-                "description": "Pay when your order is delivered",
-                "logo": None,
-                "supported_currencies": ["ETB"]
-            }
-        ]
-    }
-
-@router.get("/transactions", response_model=List[PaymentResponse])
-def get_all_transactions(
-    db: Session = Depends(get_db),
-    current_user: DBUser = Depends(get_current_active_user)
-):
-    """Get all payment transactions (admin/manager only)"""
+    from models.mongo_models import PaymentMethod
     
-    payments = payment_service.get_all_payments(db)
-    return payments
+    methods = [
+        {"id": "chapa", "name": "Chapa", "type": PaymentMethod.CHAPA},
+        {"id": "telebirr", "name": "Telebirr", "type": PaymentMethod.TELEBIRR},
+        {"id": "cash", "name": "Cash on Delivery", "type": PaymentMethod.CASH_ON_DELIVERY}
+    ]
+    
+    return {"payment_methods": methods}
+
+@router.get("/transactions")
+async def get_transactions(
+    status: Optional[str] = Query(None, description="Filter by payment status"),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=1000),
+    current_user: User = Depends(get_manager_user)
+):
+    """Get payment transactions (Manager/Admin only)"""
+    try:
+        query = {}
+        if status:
+            query["status"] = status
+        
+        payments = await Payment.find(query).skip(skip).limit(limit).sort("-created_at").to_list()
+        
+        transactions = []
+        for payment in payments:
+            transactions.append({
+                "id": str(payment.id),
+                "order_id": str(payment.order_id),
+                "user_id": str(payment.user_id),
+                "amount": payment.amount,
+                "currency": payment.currency,
+                "payment_method": payment.payment_method,
+                "status": payment.status,
+                "external_transaction_id": payment.external_transaction_id,
+                "gateway_reference": payment.gateway_reference,
+                "created_at": payment.created_at,
+                "completed_at": payment.completed_at
+            })
+        
+        return {"transactions": transactions}
+        
+    except Exception as e:
+        return {"transactions": [], "error": str(e)}

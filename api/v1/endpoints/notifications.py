@@ -1,67 +1,107 @@
-from typing import List
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
-from api.deps import get_db, get_current_active_user
+from typing import List, Optional
+from fastapi import APIRouter, Depends, HTTPException, Query
+from api.deps import get_current_active_user
 from schemas.notification import NotificationResponse, NotificationUpdate
 from services.notification_service import notification_service
-from models.users import DBUser
+from models.mongo_models import User
 
 router = APIRouter(redirect_slashes=False)
 
-@router.get("/", response_model=List[NotificationResponse])
-def get_notifications(
-    skip: int = 0,
-    limit: int = 50,
-    unread_only: bool = False,
-    db: Session = Depends(get_db),
-    current_user: DBUser = Depends(get_current_active_user)
+@router.get("/")
+async def get_notifications(
+    unread_only: Optional[bool] = Query(False, description="Get only unread notifications"),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=1000),
+    current_user: User = Depends(get_current_active_user)
 ):
-    """Get user's notifications"""
-    return notification_service.get_user_notifications(
-        db=db,
-        user_id=current_user.id,
-        skip=skip,
-        limit=limit,
-        unread_only=unread_only
-    )
+    """Get user notifications"""
+    try:
+        notifications = await notification_service.get_user_notifications(
+            user_id=str(current_user.id),
+            skip=skip,
+            limit=limit,
+            unread_only=unread_only
+        )
+        
+        notification_list = []
+        for notification in notifications:
+            notification_list.append({
+                "id": str(notification.id),
+                "user_id": str(notification.user_id),
+                "title": notification.title,
+                "message": notification.message,
+                "type": notification.type,
+                "is_read": notification.is_read,
+                "data": notification.data,
+                "created_at": notification.created_at
+            })
+        
+        return {"notifications": notification_list}
+        
+    except Exception as e:
+        return {"notifications": [], "error": str(e)}
 
-@router.get("/unread-count", response_model=int)
-def get_unread_count(
-    db: Session = Depends(get_db),
-    current_user: DBUser = Depends(get_current_active_user)
-):
+@router.get("/unread-count")
+async def get_unread_count(current_user: User = Depends(get_current_active_user)):
     """Get count of unread notifications"""
-    return notification_service.get_unread_count(db, current_user.id)
+    try:
+        count = await notification_service.get_notification_count(
+            user_id=str(current_user.id),
+            unread_only=True
+        )
+        return {"unread_count": count}
+    except Exception as e:
+        return {"unread_count": 0, "error": str(e)}
 
-@router.put("/{notification_id}/read", response_model=NotificationResponse)
-def mark_as_read(
-    notification_id: int,
-    db: Session = Depends(get_db),
-    current_user: DBUser = Depends(get_current_active_user)
+@router.put("/{notification_id}/read")
+async def mark_notification_as_read(
+    notification_id: str,
+    current_user: User = Depends(get_current_active_user)
 ):
-    """Mark a notification as read"""
-    notification = notification_service.mark_as_read(db, notification_id, current_user.id)
-    if not notification:
-        raise HTTPException(status_code=404, detail="Notification not found")
-    return notification
+    """Mark notification as read"""
+    try:
+        notification = await notification_service.mark_as_read(
+            notification_id=notification_id,
+            user_id=str(current_user.id)
+        )
+        
+        if notification:
+            return {"message": "Notification marked as read", "id": str(notification.id)}
+        else:
+            raise HTTPException(status_code=404, detail="Notification not found")
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating notification: {str(e)}")
 
 @router.put("/mark-all-read")
-def mark_all_as_read(
-    db: Session = Depends(get_db),
-    current_user: DBUser = Depends(get_current_active_user)
-):
+async def mark_all_notifications_as_read(current_user: User = Depends(get_current_active_user)):
     """Mark all notifications as read"""
-    count = notification_service.mark_all_as_read(db, current_user.id)
-    return {"message": f"Marked {count} notifications as read"}
+    try:
+        count = await notification_service.mark_all_as_read(user_id=str(current_user.id))
+        return {"message": f"Marked {count} notifications as read", "count": count}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating notifications: {str(e)}")
 
 @router.delete("/{notification_id}")
-def delete_notification(
-    notification_id: int,
-    db: Session = Depends(get_db),
-    current_user: DBUser = Depends(get_current_active_user)
+async def delete_notification(
+    notification_id: str,
+    current_user: User = Depends(get_current_active_user)
 ):
-    """Delete a notification"""
-    success = notification_service.delete_notification(db, notification_id, current_user.id)
-    if not success:
-        raise HTTPException(status_code=404, detail="Notification not found")
-    return {"message": "Notification deleted successfully"} 
+    """Delete notification"""
+    try:
+        success = await notification_service.delete_notification(
+            notification_id=notification_id,
+            user_id=str(current_user.id)
+        )
+        
+        if success:
+            return {"message": "Notification deleted successfully"}
+        else:
+            raise HTTPException(status_code=404, detail="Notification not found")
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting notification: {str(e)}") 

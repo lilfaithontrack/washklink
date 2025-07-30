@@ -2,7 +2,7 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from api.v1.routers import api_router
-from database import engine, init_db
+from database import init_db, close_mongo_connection
 from core.config import settings
 import logging
 
@@ -17,8 +17,18 @@ app = FastAPI(
     openapi_url=f"{settings.API_V1_STR}/openapi.json"
 )
 
-# Initialize database
-init_db()
+# Event handlers for database connection
+@app.on_event("startup")
+async def startup_event():
+    """Initialize MongoDB connection on startup"""
+    await init_db()
+    logger.info("MongoDB connection initialized")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Close MongoDB connection on shutdown"""
+    await close_mongo_connection()
+    logger.info("MongoDB connection closed")
 
 # Add CORS middleware
 app.add_middleware(

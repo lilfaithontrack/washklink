@@ -1,8 +1,6 @@
-from database import Base
+# Base database models
+# Note: Models have been migrated to MongoDB
+# See: models/mongo_models.py
 
-# Import all models here to ensure they are registered with SQLAlchemy
-from models.users import DBUser
-from db.models.service_provider import ServiceProvider
-from db.models.driver import Driver
-from db.models.payment import Payment
-from db.models.order_item import OrderItem
+# This file is deprecated but kept for compatibility
+# All models are now defined in models/mongo_models.py
