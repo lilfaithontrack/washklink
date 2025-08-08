@@ -23,6 +23,7 @@ class Settings(BaseSettings):
         "https://adm.washlinnk.com",
         "https://app.washlinnk.com",
         "https://washlinnk.com",
+        "https://washlink.et",
         # Expo Development (replace with your actual local IP)
         "http://localhost:19000",
         "http://localhost:19006",      # Expo web
