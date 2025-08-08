@@ -60,6 +60,24 @@ ITEMS_STORAGE = [
     }
 ]
 
+@router.get("/public", response_model=List[dict])
+def get_public_items(
+    category: Optional[str] = Query(None, description="Filter by category"),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=1000)
+):
+    """Get active items/services for customers (public access)"""
+    items = [item for item in ITEMS_STORAGE if item["is_active"]]
+    
+    # Apply filters
+    if category:
+        items = [item for item in items if item["category"] == category]
+    
+    # Apply pagination
+    items = items[skip:skip + limit]
+    
+    return items
+
 @router.get("/", response_model=List[dict])
 def get_all_items(current_user: User = Depends(get_manager_user),
     category: Optional[str] = Query(None, description="Filter by category"),

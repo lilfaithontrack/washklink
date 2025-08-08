@@ -1,7 +1,7 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from api.deps import get_current_active_user, get_manager_user
-from schemas.order import OrderCreate, OrderUpdate, OrderResponse
+from schemas.order import OrderCreate, OrderUpdate, OrderResponse, OrderItemResponse
 from models.mongo_models import User, UserRole, Order, OrderStatus
 from crud.mongo_order import order_mongo_crud
 from services.order_service import create_order_with_items
@@ -19,7 +19,45 @@ async def create_order(
         order.user_id = str(current_user.id)
     elif not order.user_id:
         order.user_id = str(current_user.id)
-    return await create_order_with_items(order)
+    
+    # Create the order
+    created_order = await create_order_with_items(order)
+    
+    # Convert to OrderResponse format
+    return OrderResponse(
+        id=str(created_order.id),
+        user_id=str(created_order.user_id),
+        driver_id=str(created_order.driver_id) if created_order.driver_id else None,
+        provider_id=str(created_order.service_provider_id) if created_order.service_provider_id else None,
+        status=created_order.status,
+        total_amount=created_order.subtotal,  # Map subtotal to total_amount
+        pickup_address=created_order.pickup_address or "",
+        delivery_address=created_order.delivery_address or "",
+        pickup_lat=created_order.pickup_latitude,
+        pickup_lng=created_order.pickup_longitude,
+        delivery_lat=created_order.delivery_latitude,
+        delivery_lng=created_order.delivery_longitude,
+        notes=created_order.note,
+        payment_method=created_order.payment_option,
+        cash_on_delivery=created_order.cash_on_delivery,
+        created_at=created_order.created_at,
+        updated_at=created_order.updated_at,
+        accepted_at=created_order.accepted_at,
+        picked_up_at=None,  # Order model doesn't have this field
+        completed_at=created_order.completed_at,
+        cancelled_at=None,  # Order model doesn't have this field
+        cancellation_reason=None,  # Order model doesn't have this field
+        items=[
+            OrderItemResponse(
+                id=i,  # Use index as ID since OrderItem doesn't have an ID field
+                product_id=item.product_id,
+                category_id=item.category_id,
+                quantity=item.quantity,
+                price=item.price,
+                service_type=item.service_type or ""
+            ) for i, item in enumerate(created_order.items)
+        ]
+    )
 
 @router.get("/", response_model=List[OrderResponse])
 async def get_orders(
@@ -36,17 +74,36 @@ async def get_orders(
     return [OrderResponse(
         id=str(order.id),
         user_id=str(order.user_id),
-        service_provider_id=str(order.service_provider_id) if order.service_provider_id else None,
         driver_id=str(order.driver_id) if order.driver_id else None,
+        provider_id=str(order.service_provider_id) if order.service_provider_id else None,
         status=order.status,
-        service_type=order.service_type,
-        subtotal=order.subtotal,
-        delivery=order.delivery,
-        delivery_charge=order.delivery_charge,
-        pickup_address=order.pickup_address,
-        delivery_address=order.delivery_address,
+        total_amount=order.subtotal,  # Map subtotal to total_amount
+        pickup_address=order.pickup_address or "",
+        delivery_address=order.delivery_address or "",
+        pickup_lat=order.pickup_latitude,
+        pickup_lng=order.pickup_longitude,
+        delivery_lat=order.delivery_latitude,
+        delivery_lng=order.delivery_longitude,
+        notes=order.note,
+        payment_method=order.payment_option,
+        cash_on_delivery=order.cash_on_delivery,
         created_at=order.created_at,
-        items=order.items
+        updated_at=order.updated_at,
+        accepted_at=order.accepted_at,
+        picked_up_at=None,  # Order model doesn't have this field
+        completed_at=order.completed_at,
+        cancelled_at=None,  # Order model doesn't have this field
+        cancellation_reason=None,  # Order model doesn't have this field
+        items=[
+            OrderItemResponse(
+                id=i,  # Use index as ID since OrderItem doesn't have an ID field
+                product_id=item.product_id,
+                category_id=item.category_id,
+                quantity=item.quantity,
+                price=item.price,
+                service_type=item.service_type or ""
+            ) for i, item in enumerate(order.items)
+        ]
     ) for order in orders]
 
 @router.get("/my-orders", response_model=List[OrderResponse])
@@ -60,17 +117,36 @@ async def get_my_orders(
     return [OrderResponse(
         id=str(order.id),
         user_id=str(order.user_id),
-        service_provider_id=str(order.service_provider_id) if order.service_provider_id else None,
         driver_id=str(order.driver_id) if order.driver_id else None,
+        provider_id=str(order.service_provider_id) if order.service_provider_id else None,
         status=order.status,
-        service_type=order.service_type,
-        subtotal=order.subtotal,
-        delivery=order.delivery,
-        delivery_charge=order.delivery_charge,
-        pickup_address=order.pickup_address,
-        delivery_address=order.delivery_address,
+        total_amount=order.subtotal,  # Map subtotal to total_amount
+        pickup_address=order.pickup_address or "",
+        delivery_address=order.delivery_address or "",
+        pickup_lat=order.pickup_latitude,
+        pickup_lng=order.pickup_longitude,
+        delivery_lat=order.delivery_latitude,
+        delivery_lng=order.delivery_longitude,
+        notes=order.note,
+        payment_method=order.payment_option,
+        cash_on_delivery=order.cash_on_delivery,
         created_at=order.created_at,
-        items=order.items
+        updated_at=order.updated_at,
+        accepted_at=order.accepted_at,
+        picked_up_at=None,  # Order model doesn't have this field
+        completed_at=order.completed_at,
+        cancelled_at=None,  # Order model doesn't have this field
+        cancellation_reason=None,  # Order model doesn't have this field
+        items=[
+            OrderItemResponse(
+                id=i,  # Use index as ID since OrderItem doesn't have an ID field
+                product_id=item.product_id,
+                category_id=item.category_id,
+                quantity=item.quantity,
+                price=item.price,
+                service_type=item.service_type or ""
+            ) for i, item in enumerate(order.items)
+        ]
     ) for order in orders]
 
 @router.get("/{order_id}", response_model=OrderResponse)

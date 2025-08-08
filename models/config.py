@@ -3,11 +3,14 @@ from functools import lru_cache
 from typing import Optional
 
 class Settings(BaseSettings):
-    DATABASE_URL: str
+    # Database settings - make optional for backward compatibility
+    DATABASE_URL: Optional[str] = "sqlite:///./washlink.db"
+    MONGODB_URL: Optional[str] = "mongodb://localhost:27017"
 
-    AFRO_MESSAGE_API_KEY: str
-    AFRO_MESSAGE_SENDER_NAME: str
-    AFRO_MESSAGE_IDENTIFIER_ID: str
+    # AfroMessage settings
+    AFRO_MESSAGE_API_KEY: str = ""
+    AFRO_MESSAGE_SENDER_NAME: str = ""
+    AFRO_MESSAGE_IDENTIFIER_ID: str = ""
     AFRO_MESSAGE_BASE_URL: str = "https://api.afromessage.com/api"
     
     AFRO_MESSAGE_CALLBACK: Optional[str] = ""
@@ -17,9 +20,12 @@ class Settings(BaseSettings):
     AFRO_MESSAGE_LEN: int = 6
     AFRO_MESSAGE_T: int = 0
 
-    # Add these Google Auth fields as optional
+    # Google Auth fields as optional
     google_client_id: Optional[str] = None
     google_client_secret: Optional[str] = None
+
+    # Allow extra fields to prevent validation errors
+    model_config = {"extra": "allow"}
 
     class Config:
         env_file = ".env"

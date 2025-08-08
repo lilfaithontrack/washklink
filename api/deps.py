@@ -6,18 +6,30 @@ from typing import Optional
 import uuid
 
 async def get_current_user(request: Request) -> User:
+    # Check for token in cookies first (web app), then Authorization header (mobile app)
     token = request.cookies.get('access_token')
+    
+    # If no cookie token, check Authorization header
+    if not token:
+        auth_header = request.headers.get('Authorization')
+        if auth_header and auth_header.startswith('Bearer '):
+            token = auth_header.replace('Bearer ', '')
+    
     if not token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+    
     payload = verify_token(token)
     if not payload:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+    
     user_id = payload.get("user_id")
     if not user_id:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+    
     user = await user_mongo_crud.get(user_id)
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    
     return user
 
 async def get_current_active_user(current_user: User = Depends(get_current_user)) -> User:

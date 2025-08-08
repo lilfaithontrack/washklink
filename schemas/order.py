@@ -12,9 +12,9 @@ class OrderStatus(str, Enum):
     CANCELLED = "cancelled"
 
 class OrderBase(BaseModel):
-    user_id: int
-    driver_id: Optional[int] = None
-    provider_id: Optional[int] = None
+    user_id: Optional[str] = None  # Made optional since backend sets it from current_user
+    driver_id: Optional[str] = None  # Changed to string for ObjectId compatibility
+    provider_id: Optional[str] = None  # Changed to string for ObjectId compatibility
     status: OrderStatus = OrderStatus.PENDING
     total_amount: float = Field(..., ge=0)
     pickup_address: constr(min_length=1, max_length=255)
@@ -24,9 +24,12 @@ class OrderBase(BaseModel):
     delivery_lat: Optional[float] = Field(None, ge=-90, le=90)
     delivery_lng: Optional[float] = Field(None, ge=-180, le=180)
     notes: Optional[str] = Field(None, max_length=500)
+    # Add payment fields
+    payment_method: Optional[str] = None
+    cash_on_delivery: bool = False
 
 class OrderItemBase(BaseModel):
-    product_id: int
+    product_id: str  # Changed to string for ObjectId compatibility
     category_id: int
     quantity: int
     price: float
@@ -45,9 +48,9 @@ class OrderCreate(OrderBase):
     items: List[OrderItemCreate]
 
 class OrderUpdate(BaseModel):
-    user_id: Optional[int] = None
-    driver_id: Optional[int] = None
-    provider_id: Optional[int] = None
+    user_id: Optional[str] = None  # Changed to string for ObjectId compatibility
+    driver_id: Optional[str] = None  # Changed to string for ObjectId compatibility
+    provider_id: Optional[str] = None  # Changed to string for ObjectId compatibility
     status: Optional[OrderStatus] = None
     total_amount: Optional[float] = Field(None, ge=0)
     pickup_address: Optional[constr(min_length=1, max_length=255)] = None
@@ -62,10 +65,26 @@ class OrderUpdate(BaseModel):
     picked_up_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
     cancelled_at: Optional[datetime] = None
+    payment_method: Optional[str] = None
+    cash_on_delivery: Optional[bool] = None
 
 # Update OrderResponse to include items
-class OrderResponse(OrderBase):
-    id: int
+class OrderResponse(BaseModel):
+    id: str  # Changed to string for ObjectId compatibility
+    user_id: str  # Required in response
+    driver_id: Optional[str] = None
+    provider_id: Optional[str] = None
+    status: OrderStatus
+    total_amount: float
+    pickup_address: str
+    delivery_address: str
+    pickup_lat: Optional[float] = None
+    pickup_lng: Optional[float] = None
+    delivery_lat: Optional[float] = None
+    delivery_lng: Optional[float] = None
+    notes: Optional[str] = None
+    payment_method: Optional[str] = None
+    cash_on_delivery: bool = False
     created_at: datetime
     updated_at: Optional[datetime] = None
     accepted_at: Optional[datetime] = None

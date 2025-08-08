@@ -5,6 +5,7 @@ This script migrates data from the existing SQL database to MongoDB
 """
 
 import asyncio
+import os
 import sqlite3
 import logging
 from datetime import datetime
@@ -414,15 +415,20 @@ class SQLToMongoMigrator:
             
             logger.info("Starting SQL to MongoDB migration...")
             
-            # Clear existing MongoDB data (optional - comment out if you want to keep existing data)
-            logger.info("Clearing existing MongoDB collections...")
-            await User.delete_all()
-            await ServiceProvider.delete_all()
-            await Driver.delete_all()
-            await Item.delete_all()
-            await Order.delete_all()
-            await Payment.delete_all()
-            await Notification.delete_all()
+            # SAFETY CHECK: Only clear data if explicitly requested
+            clear_data = os.getenv("CLEAR_MONGODB_DATA", "false").lower() == "true"
+            if clear_data:
+                logger.warning("CLEARING EXISTING MONGODB DATA - This will delete all existing data!")
+                logger.info("Clearing existing MongoDB collections...")
+                await User.delete_all()
+                await ServiceProvider.delete_all()
+                await Driver.delete_all()
+                await Item.delete_all()
+                await Order.delete_all()
+                await Payment.delete_all()
+                await Notification.delete_all()
+            else:
+                logger.info("Preserving existing MongoDB data (set CLEAR_MONGODB_DATA=true to clear)")
             
             # Run migrations in dependency order
             await self.migrate_users()

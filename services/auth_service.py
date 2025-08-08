@@ -88,25 +88,39 @@ async def send_otp(mobile: str) -> dict:
 
 async def verify_otp(to: str, code: str) -> bool:
     """Verify OTP using AfroMessage API"""
+    # Use the same token as in SMS sending
+    token = "eyJhbGciOiJIUzI1NiJ9.eyJpZGVudGlmaWVyIjoidWp3V1dYNWlDRU81ZkE4TjczQ3NKN29Jek52YlRodWMiLCJleHAiOjE4ODYxNTU5MzksImlhdCI6MTcyODM4OTUzOSwianRpIjoiNWMzMWE2OTYtYjNhNi00NWVkLTk3ZmUtYTk4ZGZmY2ZiYWJmIn0._0QVF8dLEkS0TQKEe8JHtXxqoe8D1YcrKG7mgEPviHI"
+    
     base_url = 'https://api.afromessage.com/api/verify'
-    headers = {'Authorization': f'Bearer {settings.AFRO_MESSAGE_API_KEY}'}
+    headers = {'Authorization': f'Bearer {token}'}
     url = f'{base_url}?to={to}&code={code}'
+
+    logger.info(f"🔍 Verifying OTP with AfroMessage")
+    logger.info(f"📱 Phone: {to}")
+    logger.info(f"🔢 Code: {code}")
+    logger.info(f"🔗 URL: {url}")
+    logger.info(f"📋 Headers: {headers}")
 
     try:
         async with httpx.AsyncClient() as client:
             response = await client.get(url, headers=headers, timeout=10)
+            logger.info(f"📊 Response Status: {response.status_code}")
+            logger.info(f"📄 Response Body: {response.text}")
+            
             if response.status_code == 200:
                 data = response.json()
+                logger.info(f"📦 Parsed Response: {data}")
                 if data.get('acknowledge') == 'success':
+                    logger.info(f"✅ AfroMessage verification successful")
                     return True
                 else:
-                    logger.warning(f"OTP verification failed: {data}")
+                    logger.warning(f"❌ AfroMessage verification failed: {data}")
                     return False
             else:
-                logger.error(f"HTTP error verifying OTP: {response.status_code} {response.text}")
+                logger.error(f"❌ HTTP error verifying OTP: {response.status_code} {response.text}")
                 return False
     except Exception as e:
-        logger.error(f"Exception during OTP verification: {e}")
+        logger.error(f"❌ Exception during OTP verification: {e}")
         return False
 
 def create_access_token(data: dict) -> str:

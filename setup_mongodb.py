@@ -61,24 +61,8 @@ async def setup_mongodb():
         else:
             logger.info(f"Admin user already exists: {admin_email}")
         
-        # Create some sample items if none exist
-        existing_items = await Item.find_all().limit(1).to_list()
-        if not existing_items:
-            from models.mongo_models import Item
-            
-            sample_items = [
-                Item(name="Shirt", description="Basic shirt laundry", price=50.0, category="Basic", estimated_time="24 hours"),
-                Item(name="Pants", description="Basic pants laundry", price=80.0, category="Basic", estimated_time="24 hours"),
-                Item(name="Dress", description="Premium dress laundry", price=120.0, category="Premium", estimated_time="48 hours"),
-                Item(name="Suit", description="Premium suit laundry", price=200.0, category="Premium", estimated_time="48 hours"),
-                Item(name="Jeans", description="Basic jeans laundry", price=90.0, category="Basic", estimated_time="24 hours"),
-                Item(name="T-shirt", description="Basic t-shirt laundry", price=40.0, category="Basic", estimated_time="24 hours"),
-            ]
-            
-            for item in sample_items:
-                await item.insert()
-            
-            logger.info(f"Created {len(sample_items)} sample items")
+        # Sample data creation removed - no automatic sample items will be created
+        logger.info("Sample data creation disabled - database will start empty")
         
         # Show database statistics
         collections = await database.list_collection_names()

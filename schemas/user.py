@@ -21,7 +21,7 @@ class UserUpdate(UserBase):
 
 class UserResponse(BaseModel):
     id: str
-    email: str
+    email: Optional[str] = None  # Made optional for customers who don't have email
     phone: Optional[str] = None
     full_name: str
     role: str

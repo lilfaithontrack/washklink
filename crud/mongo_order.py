@@ -25,6 +25,8 @@ class OrderCreate(BaseModel):
     delivery_charge: float = 0.0
     service_type: ServiceType = ServiceType.MACHINE_WASH
     note: Optional[str] = None
+    payment_method: Optional[str] = None
+    cash_on_delivery: bool = False
 
 class OrderUpdate(BaseModel):
     status: Optional[OrderStatus] = None
@@ -34,6 +36,11 @@ class OrderUpdate(BaseModel):
     delivery_longitude: Optional[float] = None
     delivery_address: Optional[str] = None
     note: Optional[str] = None
+    payment_method: Optional[str] = None
+    cash_on_delivery: Optional[bool] = None
+    estimated_pickup_time: Optional[datetime] = None
+    estimated_completion_time: Optional[datetime] = None
+    estimated_delivery_time: Optional[datetime] = None
 
 class OrderMongoCRUD:
     async def get(self, order_id: str) -> Optional[Order]:

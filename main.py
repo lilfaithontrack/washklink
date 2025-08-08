@@ -2,6 +2,7 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from api.v1.routers import api_router
+from routes.users_routes import router as legacy_users_router
 from database import init_db, close_mongo_connection
 from core.config import settings
 import logging
@@ -33,7 +34,7 @@ async def shutdown_event():
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # Your React frontend URL
+    allow_origins=settings.CORS_ORIGINS,  # Use dynamic origins from settings
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -42,6 +43,9 @@ app.add_middleware(
 
 # Include API router with prefix
 app.include_router(api_router, prefix=settings.API_V1_STR)
+
+# Include legacy routes for backward compatibility
+app.include_router(legacy_users_router, prefix="", tags=["legacy"])
 
 # Health check endpoint
 @app.get("/health")

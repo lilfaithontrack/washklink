@@ -11,6 +11,10 @@ logger = logging.getLogger(__name__)
 async def create_order_with_items(order: OrderCreate) -> Order:
     """Create a new order with items"""
     try:
+        # Ensure user_id is set (should be set by the endpoint)
+        if not order.user_id:
+            raise HTTPException(status_code=400, detail="User ID is required")
+        
         # Create the order
         new_order = Order(
             user_id=ObjectId(order.user_id),
@@ -25,13 +29,15 @@ async def create_order_with_items(order: OrderCreate) -> Order:
             delivery_latitude=order.delivery_lat,
             delivery_longitude=order.delivery_lng,
             note=order.notes,
+            payment_option=order.payment_method,
+            cash_on_delivery=order.cash_on_delivery,
             items=[]  # Initialize empty items list
         )
 
         # Add order items
         for item in order.items:
             order_item = OrderItem(
-                product_id=ObjectId(item.product_id),
+                product_id=item.product_id,  # Now accepts string directly
                 category_id=item.category_id,
                 quantity=item.quantity,
                 price=item.price,
@@ -53,11 +59,12 @@ async def create_order_with_items(order: OrderCreate) -> Order:
                 logger.warning(f"Could not auto-assign order {new_order.id}")
         except Exception as e:
             logger.error(f"Failed to auto-assign order {new_order.id}: {e}")
+            # Don't fail the entire order creation if assignment fails
 
         return new_order
     except Exception as e:
         logger.error(f"Error creating order: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to create order")
+        raise HTTPException(status_code=500, detail=f"Failed to create order: {str(e)}")
 
 async def get_all_orders(skip: int = 0, limit: int = 100) -> List[Order]:
     """Get all orders with pagination"""

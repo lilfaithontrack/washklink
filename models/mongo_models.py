@@ -254,7 +254,7 @@ class Item(Document):
 # Order Item Model - This is a BaseModel, not a Document
 class OrderItem(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
-    product_id: PydanticObjectId
+    product_id: str  # Changed to string to handle both ObjectId and integer IDs
     category_id: int
     quantity: int
     price: float

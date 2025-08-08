@@ -1,7 +1,7 @@
 from fastapi import HTTPException
 from models.mongo_models import ServiceProvider, ProviderStatus
 from schemas.service_provider import ServiceProviderCreate, ServiceProviderUpdate, ServiceProviderResponse
-from utils.hashing import hash_password
+from core.security import get_password_hash as hash_password
 from typing import List, Optional
 from bson import ObjectId
 from datetime import datetime

@@ -16,11 +16,29 @@ class Settings(BaseSettings):
     REDIS_HOST: str = "localhost"
     REDIS_PORT: int = 6379
     # CORS settings
-    CORS_ORIGINS: list = ["http://localhost:3000"]
+    CORS_ORIGINS: list = [
+        # Web Applications
+        "http://localhost:3000",
+        "http://localhost:5173", 
+        "https://admin.washlinnk.com",
+        "https://app.washlinnk.com",
+        "https://washlinnk.com",
+        # Expo Development (replace with your actual local IP)
+        "http://localhost:19000",
+        "http://localhost:19006",      # Expo web
+        # Add your actual local IP for mobile development
+        # "http://192.168.1.100:19000",  # Uncomment and replace with your IP
+        # Mobile App (React Native doesn't typically need CORS, but just in case)
+        "capacitor://localhost",
+        "ionic://localhost"
+    ]
+    # Production settings
+    IS_PRODUCTION: bool = False
+    COOKIE_SECURE: bool = False
     # JWT
     SECRET_KEY: str = "your-secret-key-here"
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24 hours
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 180  # 6 months
     # Admin user
     DEFAULT_ADMIN_EMAIL: str = "admin@washlink.com"
     DEFAULT_ADMIN_PHONE: str = "+251911000000"

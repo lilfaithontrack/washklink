@@ -12,28 +12,31 @@ class UserBase(BaseModel):
 
 # For requesting OTP
 class UserCreate(BaseModel):
-    phone: PhoneStr
+    phone_number: str  # Changed from phone to phone_number for consistency
     full_name: str
 
 # For verifying OTP and logging in
-class UserVerify(UserCreate):  # Inherits full_name, phone
+class UserVerify(BaseModel):
+    phone_number: str  # Changed from phone to phone_number for consistency
+    full_name: str
     email: Optional[EmailStr] = None
     otp_code: str
 
 # For updating profile
 class UserUpdate(BaseModel):
     full_name: Optional[str] = None
-    phone: PhoneStr
-    otp_code: str
+    phone_number: Optional[str] = None  # Changed from phone to phone_number for consistency
+    email: Optional[EmailStr] = None
+    password: Optional[str] = None
 
-# Auth response (simplified for legacy compatibility)
+# Auth response (unified for both v1 and legacy)
 class UserResponse(BaseModel):
     id: str
     full_name: str
-    phone: Optional[str]
-    email: Optional[str]
+    phone: Optional[str] = None  # Keep as phone for API response consistency
+    email: Optional[str] = None
     role: Optional[str] = None
-    is_active: bool
+    is_active: bool = True
 
     class Config:
         from_attributes = True
