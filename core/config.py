@@ -20,7 +20,7 @@ class Settings(BaseSettings):
         # Web Applications
         "http://localhost:3000",
         "http://localhost:5173", 
-        "https://admin.washlinnk.com",
+        "https://adm.washlinnk.com",
         "https://app.washlinnk.com",
         "https://washlinnk.com",
         # Expo Development (replace with your actual local IP)
